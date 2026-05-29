@@ -1,5 +1,6 @@
 import './style.css';
 import * as GaussianSplats3D from '@mkkellogg/gaussian-splats-3d';
+import * as THREE from 'three';
 import GUI from 'lil-gui';
 
 const appEl = document.getElementById('app');
@@ -25,7 +26,7 @@ const viewerOptions = {
     sharedMemoryForWorkers: false,
     integerBasedSort: false,
     halfPrecisionCovariancesOnGPU: false,
-    dynamicScene: true,
+    dynamicScene: false,
     webXRMode: GaussianSplats3D.WebXRMode.None,
     renderMode: GaussianSplats3D.RenderMode.Always,
     sceneRevealMode: GaussianSplats3D.SceneRevealMode.Gradual,
@@ -53,7 +54,6 @@ let fallbackInProgress = false;
 let rebuildInProgress = false;
 let operationQueue = Promise.resolve();
 let lastWorkingViewerOptions = { ...viewerOptions };
-let originalSplatPositions = null;
 let animationStartTime = Date.now();
 let globalAnimationFrameId = 0;
 
@@ -127,72 +127,84 @@ function stopManualLoop() {
 }
 
 function applysinWaveAnimation() {
-    if (!viewer || !originalSplatPositions || !viewerOptions.sinWaveAnimation) {
+    if (!viewer || !viewerOptions.sinWaveAnimation) {
+        return;
+    }
+
+    const splatMesh = viewer.splatMesh;
+    if (!splatMesh?.material?.uniforms) {
         return;
     }
 
     const elapsed = (Date.now() - animationStartTime) * 0.001;
-    const sceneCount = viewer.getSceneCount();
 
-    for (let sceneIdx = 0; sceneIdx < sceneCount; sceneIdx++) {
-        const scene = viewer.getScene(sceneIdx);
-        if (!scene) {
-            continue;
-        }
-
-        // Debug: log scene structure
-        console.log('Scene object keys:', Object.keys(scene));
-        console.log('Scene object:', scene);
-
-        // Try multiple ways to access the mesh/geometry
-        let mesh = scene.mesh || scene.threeScene?.children?.[0];
-
-        if (!mesh) {
-            // Try accessing through the viewer's internal three scene
-            if (viewer.renderer && viewer.renderer.getContext()) {
-                const threeScene = viewer.getScene(sceneIdx).threeScene;
-                if (threeScene && threeScene.children) {
-                    mesh = threeScene.children[0];
-                }
-            }
-        }
-
-        if (!mesh) {
-            console.warn('Could not find mesh for scene', sceneIdx);
-            continue;
-        }
-
-        console.log('Found mesh:', mesh);
-
-        if (!mesh.geometry) {
-            console.warn('Mesh has no geometry');
-            continue;
-        }
-
-        const posAttr = mesh.geometry.getAttribute('position');
-        if (!posAttr || !originalSplatPositions[sceneIdx]) {
-            console.warn('No position attribute or original positions');
-            continue;
-        }
-
-        const origPos = originalSplatPositions[sceneIdx];
-        const amp = viewerOptions.sinWaveAmplitude;
-        const freq = viewerOptions.sinWaveFrequency;
-        const array = posAttr.array;
-
-        for (let i = 0; i < origPos.length; i += 3) {
-            const x = origPos[i];
-            const y = origPos[i + 1];
-            const z = origPos[i + 2];
-            const offset = x + y + z;
-            const wave = Math.sin(elapsed * freq + offset) * amp;
-            array[i] = x;
-            array[i + 1] = y + wave;
-            array[i + 2] = z;
-        }
-
-        posAttr.needsUpdate = true;
+    // Update wave uniforms if they exist
+    if (splatMesh.material.uniforms.waveTime) {
+        splatMesh.material.uniforms.waveTime.value = elapsed;
+        splatMesh.material.uniforms.waveAmplitude.value = viewerOptions.sinWaveAmplitude;
+        splatMesh.material.uniforms.waveFrequency.value = viewerOptions.sinWaveFrequency;
     }
+}
+
+// Patch the splat material shader to add wave displacement
+function patchSplatShader() {
+    const splatMesh = viewer?.splatMesh;
+    if (!splatMesh?.material) {
+        console.log('No splatMesh material to patch');
+        return;
+    }
+
+    // Check if already patched
+    if (splatMesh.material.uniforms.waveTime) {
+        console.log('Shader already patched');
+        return;
+    }
+
+    // Add wave uniforms
+    splatMesh.material.uniforms.waveTime = { value: 0.0 };
+    splatMesh.material.uniforms.waveAmplitude = { value: 0.0 };
+    splatMesh.material.uniforms.waveFrequency = { value: 1.0 };
+    splatMesh.material.uniforms.waveEnabled = { value: 0 };
+
+    // Get current shader source
+    const originalVertexShader = splatMesh.material.vertexShader;
+
+    // Add wave uniform declarations after existing uniforms
+    const uniformDeclarations = `
+        uniform float waveTime;
+        uniform float waveAmplitude;
+        uniform float waveFrequency;
+        uniform int waveEnabled;
+    `;
+
+    // Wave displacement code to inject after splatCenter is computed
+    const waveDisplacement = `
+        // Wave displacement effect
+        if (waveEnabled == 1 && waveAmplitude > 0.0) {
+            float dist = length(splatCenter.xz);
+            float wave = sin(waveTime * waveFrequency + dist * 2.0) * waveAmplitude;
+            splatCenter.y += wave;
+        }
+    `;
+
+    // Inject uniform declarations at the start (after precision)
+    let patchedShader = originalVertexShader.replace(
+        'precision highp float;',
+        'precision highp float;\n' + uniformDeclarations
+    );
+
+    // Inject wave displacement after splatCenter is computed
+    // The line is: vec3 splatCenter = uintBitsToFloat(uvec3(sampledCenterColor.gba));
+    patchedShader = patchedShader.replace(
+        'vec3 splatCenter = uintBitsToFloat(uvec3(sampledCenterColor.gba));',
+        'vec3 splatCenter = uintBitsToFloat(uvec3(sampledCenterColor.gba));\n' + waveDisplacement
+    );
+
+    // Apply patched shader
+    splatMesh.material.vertexShader = patchedShader;
+    splatMesh.material.needsUpdate = true;
+
+    console.log('Shader patched successfully for wave animation');
 }
 
 function startManualLoop(instance) {
@@ -302,39 +314,13 @@ async function loadSplatScene(path, label, format) {
         showLoadingUI: true,
     });
 
-    // Capture original positions for sin wave animation
-    captureOriginalPositions();
+    // Patch shader for wave animation
+    patchSplatShader();
+
+    // Reset animation timer when loading new scene
     animationStartTime = Date.now();
 
     statusEl.textContent = `${label} loaded`;
-}
-
-function captureOriginalPositions() {
-    if (!viewer) return;
-
-    originalSplatPositions = {};
-    const sceneCount = viewer.getSceneCount();
-
-    for (let sceneIdx = 0; sceneIdx < sceneCount; sceneIdx++) {
-        const scene = viewer.getScene(sceneIdx);
-        if (!scene) {
-            continue;
-        }
-
-        // Try to access the Three.js mesh via the scene object
-        const mesh = scene.mesh || scene.threeScene?.children?.[0];
-        if (!mesh || !mesh.geometry) {
-            continue;
-        }
-
-        const posAttr = mesh.geometry.getAttribute('position');
-        if (!posAttr) continue;
-
-        const array = posAttr.array;
-        if (array) {
-            originalSplatPositions[sceneIdx] = new Float32Array(array);
-        }
-    }
 }
 
 async function reloadLastScene() {
@@ -604,13 +590,22 @@ rebuildOnChange(advancedFolder.add(viewerOptions, 'inMemoryCompressionLevel', 0,
 rebuildOnChange(advancedFolder.add(viewerOptions, 'freeIntermediateSplatData').name('freeIntermediateSplatData'));
 
 advancedFolder.add(viewerOptions, 'sinWaveAnimation').name('Sin Wave').onChange(() => {
+    const splatMesh = viewer?.splatMesh;
     if (viewerOptions.sinWaveAnimation) {
-        captureOriginalPositions();
         animationStartTime = Date.now();
+        // Enable wave in shader
+        if (splatMesh?.material?.uniforms?.waveEnabled) {
+            splatMesh.material.uniforms.waveEnabled.value = 1;
+        }
+    } else {
+        // Disable wave in shader
+        if (splatMesh?.material?.uniforms?.waveEnabled) {
+            splatMesh.material.uniforms.waveEnabled.value = 0;
+        }
     }
 });
-advancedFolder.add(viewerOptions, 'sinWaveAmplitude', 0, 2, 0.1).name('Wave Amplitude');
-advancedFolder.add(viewerOptions, 'sinWaveFrequency', 0.1, 5, 0.1).name('Wave Frequency');
+advancedFolder.add(viewerOptions, 'sinWaveAmplitude', 0, 5, 0.01).name('Wave Amplitude');
+advancedFolder.add(viewerOptions, 'sinWaveFrequency', 0.1, 10, 0.01).name('Wave Frequency');
 
 advancedFolder.close();
 
