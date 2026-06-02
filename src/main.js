@@ -39,9 +39,10 @@ const viewerOptions = {
     enableOptionalEffects: false,
     inMemoryCompressionLevel: 0,
     freeIntermediateSplatData: false,
-    sinWaveAnimation: false,
+    waveAnimationMode: "off",
     sinWaveAmplitude: 1.5,
     sinWaveFrequency: 1.0,
+    waveDisplacementAxis: "y",
 };
 
 const gui = new GUI({ title: "Viewer" });
@@ -64,7 +65,7 @@ function startGlobalAnimationLoop() {
         cancelAnimationFrame(globalAnimationFrameId);
     }
     const tick = () => {
-        applysinWaveAnimation();
+        applyWaveAnimation();
         globalAnimationFrameId = requestAnimationFrame(tick);
     };
     globalAnimationFrameId = requestAnimationFrame(tick);
@@ -133,13 +134,20 @@ function stopManualLoop() {
     }
 }
 
-function applysinWaveAnimation() {
-    if (!viewer || !viewerOptions.sinWaveAnimation) {
+function applyWaveAnimation() {
+    if (!viewer) {
+        return;
+    }
+    const splatMesh = viewer.splatMesh;
+    if (!splatMesh?.material?.uniforms) {
         return;
     }
 
-    const splatMesh = viewer.splatMesh;
-    if (!splatMesh?.material?.uniforms) {
+    const isEnabled = viewerOptions.waveAnimationMode !== "off";
+    if (splatMesh.material.uniforms.waveEnabled) {
+        splatMesh.material.uniforms.waveEnabled.value = isEnabled ? 1 : 0;
+    }
+    if (!isEnabled) {
         return;
     }
 
@@ -152,6 +160,24 @@ function applysinWaveAnimation() {
             viewerOptions.sinWaveAmplitude;
         splatMesh.material.uniforms.waveFrequency.value =
             viewerOptions.sinWaveFrequency;
+        if (splatMesh.material.uniforms.waveMode) {
+            splatMesh.material.uniforms.waveMode.value =
+                viewerOptions.waveAnimationMode === "perlin" ? 1 : 0;
+        }
+        if (splatMesh.material.uniforms.waveAxisMask) {
+            const axis = viewerOptions.waveDisplacementAxis;
+            const mask = {
+                x: [1, 0, 0],
+                y: [0, 1, 0],
+                z: [0, 0, 1],
+                xyz: [1, 1, 1],
+            }[axis] || [0, 1, 0];
+            splatMesh.material.uniforms.waveAxisMask.value.set(
+                mask[0],
+                mask[1],
+                mask[2],
+            );
+        }
     }
 }
 
@@ -174,6 +200,10 @@ function patchSplatShader() {
     splatMesh.material.uniforms.waveAmplitude = { value: 0.0 };
     splatMesh.material.uniforms.waveFrequency = { value: 1.0 };
     splatMesh.material.uniforms.waveEnabled = { value: 0 };
+    splatMesh.material.uniforms.waveMode = { value: 0 };
+    splatMesh.material.uniforms.waveAxisMask = {
+        value: new THREE.Vector3(0, 1, 0),
+    };
 
     // Get current shader source
     const originalVertexShader = splatMesh.material.vertexShader;
@@ -184,15 +214,51 @@ function patchSplatShader() {
         uniform float waveAmplitude;
         uniform float waveFrequency;
         uniform int waveEnabled;
+        uniform int waveMode;
+        uniform vec3 waveAxisMask;
+
+        float waveHash(vec3 p) {
+            return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453123);
+        }
+
+        float perlinNoise(vec3 p) {
+            vec3 i = floor(p);
+            vec3 f = fract(p);
+            vec3 u = f * f * (3.0 - 2.0 * f);
+
+            float n000 = waveHash(i + vec3(0.0, 0.0, 0.0));
+            float n100 = waveHash(i + vec3(1.0, 0.0, 0.0));
+            float n010 = waveHash(i + vec3(0.0, 1.0, 0.0));
+            float n110 = waveHash(i + vec3(1.0, 1.0, 0.0));
+            float n001 = waveHash(i + vec3(0.0, 0.0, 1.0));
+            float n101 = waveHash(i + vec3(1.0, 0.0, 1.0));
+            float n011 = waveHash(i + vec3(0.0, 1.0, 1.0));
+            float n111 = waveHash(i + vec3(1.0, 1.0, 1.0));
+
+            float nx00 = mix(n000, n100, u.x);
+            float nx10 = mix(n010, n110, u.x);
+            float nx01 = mix(n001, n101, u.x);
+            float nx11 = mix(n011, n111, u.x);
+            float nxy0 = mix(nx00, nx10, u.y);
+            float nxy1 = mix(nx01, nx11, u.y);
+
+            return mix(nxy0, nxy1, u.z) * 2.0 - 1.0;
+        }
     `;
 
     // Wave displacement code to inject after splatCenter is computed
     const waveDisplacement = `
         // Wave displacement effect
         if (waveEnabled == 1 && waveAmplitude > 0.0) {
-            float dist = length(splatCenter.xz);
-            float wave = sin(waveTime * waveFrequency + dist * 2.0) * waveAmplitude;
-            splatCenter.y += wave;
+            float wave = 0.0;
+            if (waveMode == 0) {
+                float dist = length(splatCenter.xz);
+                wave = sin(waveTime * waveFrequency + dist * 2.0) * waveAmplitude;
+            } else if (waveMode == 1) {
+                vec3 noisePos = vec3(splatCenter.x, splatCenter.z, waveTime) * waveFrequency;
+                wave = perlinNoise(noisePos) * waveAmplitude;
+            }
+            splatCenter += waveAxisMask * wave;
         }
     `;
 
@@ -222,7 +288,7 @@ function startManualLoop(instance) {
         if (viewer !== instance) {
             return;
         }
-        applysinWaveAnimation();
+        applyWaveAnimation();
         if (typeof instance.update === "function") {
             instance.update();
         }
@@ -286,7 +352,7 @@ function createViewer() {
 
 viewer = createViewer();
 
-// Start global animation loop for sin wave effect
+// Start global animation loop for wave effect
 startGlobalAnimationLoop();
 
 function inferSceneFormat(sourceName) {
@@ -718,22 +784,26 @@ rebuildOnChange(
 );
 
 advancedFolder
-    .add(viewerOptions, "sinWaveAnimation")
-    .name("Sin Wave")
+    .add(viewerOptions, "waveAnimationMode", {
+        Off: "off",
+        "Sin Wave": "sin",
+        "Perlin Noise": "perlin",
+    })
+    .name("Wave Animation")
     .onChange(() => {
-        const splatMesh = viewer?.splatMesh;
-        if (viewerOptions.sinWaveAnimation) {
-            animationStartTime = Date.now();
-            // Enable wave in shader
-            if (splatMesh?.material?.uniforms?.waveEnabled) {
-                splatMesh.material.uniforms.waveEnabled.value = 1;
-            }
-        } else {
-            // Disable wave in shader
-            if (splatMesh?.material?.uniforms?.waveEnabled) {
-                splatMesh.material.uniforms.waveEnabled.value = 0;
-            }
-        }
+        animationStartTime = Date.now();
+        applyWaveAnimation();
+    });
+advancedFolder
+    .add(viewerOptions, "waveDisplacementAxis", {
+        X: "x",
+        Y: "y",
+        Z: "z",
+        XYZ: "xyz",
+    })
+    .name("Displacement Axis")
+    .onChange(() => {
+        applyWaveAnimation();
     });
 advancedFolder
     .add(viewerOptions, "sinWaveAmplitude", 0, 5, 0.01)
