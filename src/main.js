@@ -39,10 +39,12 @@ const viewerOptions = {
     enableOptionalEffects: false,
     inMemoryCompressionLevel: 0,
     freeIntermediateSplatData: false,
-    waveAnimationMode: "off",
-    sinWaveAmplitude: 1.5,
-    sinWaveFrequency: 1.0,
-    waveDisplacementAxis: "y",
+    waveAnimationMode: "Sin Wave",
+    sinWaveAmplitude: 0.2,
+    sinWaveFrequency: 0.26,
+    waveDisplacementAxis: "xyz",
+    cameraMovement: true,
+    cameraMovementSpeed: 0.7,
 };
 
 const gui = new GUI({ title: "Viewer" });
@@ -59,6 +61,7 @@ let operationQueue = Promise.resolve();
 let lastWorkingViewerOptions = { ...viewerOptions };
 let animationStartTime = Date.now();
 let globalAnimationFrameId = 0;
+let cameraMovementStartTime = Date.now();
 
 function startGlobalAnimationLoop() {
     if (globalAnimationFrameId) {
@@ -66,6 +69,7 @@ function startGlobalAnimationLoop() {
     }
     const tick = () => {
         applyWaveAnimation();
+        applyCameraMovement();
         globalAnimationFrameId = requestAnimationFrame(tick);
     };
     globalAnimationFrameId = requestAnimationFrame(tick);
@@ -179,6 +183,26 @@ function applyWaveAnimation() {
             );
         }
     }
+}
+
+function applyCameraMovement() {
+    if (!viewer || !viewer.camera || !viewerOptions.cameraMovement) {
+        return;
+    }
+
+    const startY = 70;
+    const endY = 10;
+    const totalDistance = Math.abs(startY - endY);
+    const cycleDuration =
+        (totalDistance / viewerOptions.cameraMovementSpeed) * 2;
+
+    const elapsed = (Date.now() - cameraMovementStartTime) * 0.001;
+    const cyclePosition = (elapsed % cycleDuration) / cycleDuration;
+
+    const smoothProgress = Math.abs(Math.sin(cyclePosition * Math.PI));
+
+    const newY = startY - totalDistance * smoothProgress;
+    viewer.camera.position.y = Math.max(Math.min(newY, startY), endY);
 }
 
 // Patch the splat material shader to add wave displacement
@@ -402,6 +426,7 @@ async function loadSplatScene(path, label, format) {
 
     // Reset animation timer when loading new scene
     animationStartTime = Date.now();
+    cameraMovementStartTime = Date.now();
 
     statusEl.textContent = `${label} loaded`;
 }
@@ -811,6 +836,19 @@ advancedFolder
 advancedFolder
     .add(viewerOptions, "sinWaveFrequency", 0.1, 10, 0.01)
     .name("Wave Frequency");
+
+advancedFolder
+    .add(viewerOptions, "cameraMovement")
+    .name("Camera Movement")
+    .onChange(() => {
+        if (viewerOptions.cameraMovement) {
+            cameraMovementStartTime = Date.now();
+            cameraMovementDistance = 0;
+        }
+    });
+advancedFolder
+    .add(viewerOptions, "cameraMovementSpeed", 0.1, 5, 0.1)
+    .name("Camera Speed");
 
 advancedFolder.close();
 
