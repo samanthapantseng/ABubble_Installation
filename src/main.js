@@ -45,6 +45,8 @@ const viewerOptions = {
     waveDisplacementAxis: "xyz",
     cameraMovement: true,
     cameraMovementSpeed: 0.7,
+    proximityRevealMode: true,
+    proximityRevealWindowSize: 7,
 };
 
 const gui = new GUI({ title: "Viewer" });
@@ -70,6 +72,7 @@ function startGlobalAnimationLoop() {
     const tick = () => {
         applyWaveAnimation();
         applyCameraMovement();
+        applyProximityReveal();
         globalAnimationFrameId = requestAnimationFrame(tick);
     };
     globalAnimationFrameId = requestAnimationFrame(tick);
@@ -190,7 +193,7 @@ function applyCameraMovement() {
         return;
     }
 
-    const startY = 70;
+    const startY = 60;
     const endY = 10;
     const totalDistance = Math.abs(startY - endY);
     const cycleDuration =
@@ -205,7 +208,30 @@ function applyCameraMovement() {
     viewer.camera.position.y = Math.max(Math.min(newY, startY), endY);
 }
 
-// Patch the splat material shader to add wave displacement
+function applyProximityReveal() {
+    if (!viewer || !viewer.camera) {
+        return;
+    }
+
+    const splatMesh = viewer.splatMesh;
+    if (!splatMesh?.material?.uniforms) {
+        return;
+    }
+
+    if (splatMesh.material.uniforms.cameraY) {
+        splatMesh.material.uniforms.cameraY.value = viewer.camera.position.y;
+    }
+    if (splatMesh.material.uniforms.proximityRevealEnabled) {
+        splatMesh.material.uniforms.proximityRevealEnabled.value =
+            viewerOptions.proximityRevealMode ? 1 : 0;
+    }
+    if (splatMesh.material.uniforms.proximityRevealWindowSize) {
+        splatMesh.material.uniforms.proximityRevealWindowSize.value =
+            viewerOptions.proximityRevealWindowSize;
+    }
+}
+
+// Patch the splat material shader to add wave displacement and proximity reveal
 function patchSplatShader() {
     const splatMesh = viewer?.splatMesh;
     if (!splatMesh?.material) {
@@ -229,6 +255,11 @@ function patchSplatShader() {
         value: new THREE.Vector3(0, 1, 0),
     };
 
+    // Add proximity reveal uniforms
+    splatMesh.material.uniforms.cameraY = { value: 0.0 };
+    splatMesh.material.uniforms.proximityRevealEnabled = { value: 0 };
+    splatMesh.material.uniforms.proximityRevealWindowSize = { value: 20.0 };
+
     // Get current shader source
     const originalVertexShader = splatMesh.material.vertexShader;
 
@@ -240,6 +271,9 @@ function patchSplatShader() {
         uniform int waveEnabled;
         uniform int waveMode;
         uniform vec3 waveAxisMask;
+        uniform float cameraY;
+        uniform int proximityRevealEnabled;
+        uniform float proximityRevealWindowSize;
 
         float waveHash(vec3 p) {
             return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453123);
@@ -286,10 +320,30 @@ function patchSplatShader() {
         }
     `;
 
+    // Proximity reveal code for fragment shader
+    const proximityRevealDeclaration = `
+        varying float revealAlpha;
+    `;
+
+    const proximityRevealVertexCode = `
+        // Proximity reveal calculation in vertex shader
+        float distanceFromCamera = abs(splatCenter.y - cameraY);
+        revealAlpha = 1.0 - smoothstep(0.0, proximityRevealWindowSize, distanceFromCamera);
+        revealAlpha = mix(1.0, revealAlpha, float(proximityRevealEnabled));
+    `;
+
+    const proximityRevealFragmentCode = `
+        // Apply proximity reveal to alpha
+        gl_FragColor.a *= revealAlpha;
+    `;
+
     // Inject uniform declarations at the start (after precision)
     let patchedShader = originalVertexShader.replace(
         "precision highp float;",
-        "precision highp float;\n" + uniformDeclarations,
+        "precision highp float;\n" +
+            uniformDeclarations +
+            "\n" +
+            proximityRevealDeclaration,
     );
 
     // Inject wave displacement after splatCenter is computed
@@ -297,14 +351,31 @@ function patchSplatShader() {
     patchedShader = patchedShader.replace(
         "vec3 splatCenter = uintBitsToFloat(uvec3(sampledCenterColor.gba));",
         "vec3 splatCenter = uintBitsToFloat(uvec3(sampledCenterColor.gba));\n" +
-            waveDisplacement,
+            waveDisplacement +
+            proximityRevealVertexCode,
     );
 
-    // Apply patched shader
+    // Get and patch fragment shader
+    const originalFragmentShader = splatMesh.material.fragmentShader;
+    let patchedFragmentShader = originalFragmentShader.replace(
+        "precision highp float;",
+        "precision highp float;\n" + proximityRevealDeclaration,
+    );
+
+    // Inject proximity reveal code at the end
+    patchedFragmentShader = patchedFragmentShader.replace(
+        /\}[\s]*$/,
+        proximityRevealFragmentCode + "\n}",
+    );
+
+    // Apply patched shaders
     splatMesh.material.vertexShader = patchedShader;
+    splatMesh.material.fragmentShader = patchedFragmentShader;
     splatMesh.material.needsUpdate = true;
 
-    console.log("Shader patched successfully for wave animation");
+    console.log(
+        "Shader patched successfully for wave animation and proximity reveal",
+    );
 }
 
 function startManualLoop(instance) {
@@ -843,12 +914,18 @@ advancedFolder
     .onChange(() => {
         if (viewerOptions.cameraMovement) {
             cameraMovementStartTime = Date.now();
-            cameraMovementDistance = 0;
         }
     });
 advancedFolder
     .add(viewerOptions, "cameraMovementSpeed", 0.1, 5, 0.1)
     .name("Camera Speed");
+
+advancedFolder
+    .add(viewerOptions, "proximityRevealMode")
+    .name("Proximity Reveal");
+advancedFolder
+    .add(viewerOptions, "proximityRevealWindowSize", 5, 50, 1)
+    .name("Reveal Window Size");
 
 advancedFolder.close();
 
