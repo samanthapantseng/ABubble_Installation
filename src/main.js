@@ -1,25 +1,27 @@
-import './style.css';
-import * as GaussianSplats3D from '@mkkellogg/gaussian-splats-3d';
-import * as THREE from 'three';
-import GUI from 'lil-gui';
+import "./style.css";
+import * as GaussianSplats3D from "@mkkellogg/gaussian-splats-3d";
+import * as THREE from "three";
+import GUI from "lil-gui";
 
-const appEl = document.getElementById('app');
-const statusEl = document.getElementById('status');
-const fileInput = document.getElementById('plyInput');
-const urlInput = document.getElementById('plyUrl');
-const loadUrlBtn = document.getElementById('loadUrl');
-const resetViewBtn = document.getElementById('resetView');
-const helpToggleBtn = document.getElementById('helpToggle');
-const helpPanelEl = document.getElementById('helpPanel');
+const appEl = document.getElementById("app");
+const statusEl = document.getElementById("status");
+const fileInput = document.getElementById("plyInput");
+const urlInput = document.getElementById("plyUrl");
+const loadUrlBtn = document.getElementById("loadUrl");
+const resetViewBtn = document.getElementById("resetView");
+const helpToggleBtn = document.getElementById("helpToggle");
+const helpPanelEl = document.getElementById("helpPanel");
 
-const initialCameraPosition = [0, 1.5, 4];
+const initialCameraPosition = [0, 60, 0];
+//Distance of camera from center
 const initialCameraLookAt = [0, 0, 0];
 
 const viewerOptions = {
     selfDrivenMode: true,
-    renderer: 'internal',
-    camera: 'internal',
+    renderer: "internal",
+    camera: "internal",
     useBuiltInControls: true,
+    // fix the camera rotations controls
     ignoreDevicePixelRatio: false,
     gpuAcceleratedSort: false,
     enableSIMDInSort: false,
@@ -42,7 +44,7 @@ const viewerOptions = {
     sinWaveFrequency: 1.0,
 };
 
-const gui = new GUI({ title: 'Viewer' });
+const gui = new GUI({ title: "Viewer" });
 let viewer = null;
 let dynamicSceneController = null;
 let sharedMemoryController = null;
@@ -69,13 +71,18 @@ function startGlobalAnimationLoop() {
 }
 
 function refreshGuiDisplay() {
-    if (typeof gui.controllersRecursive === 'function') {
-        gui.controllersRecursive().forEach((controller) => controller.updateDisplay());
+    if (typeof gui.controllersRecursive === "function") {
+        gui.controllersRecursive().forEach((controller) =>
+            controller.updateDisplay(),
+        );
     }
 }
 
 function queueViewerOperation(operation) {
-    operationQueue = operationQueue.then(() => operation(), () => operation());
+    operationQueue = operationQueue.then(
+        () => operation(),
+        () => operation(),
+    );
     return operationQueue;
 }
 
@@ -112,7 +119,7 @@ function getEnumOptions(enumObj) {
             continue;
         }
         const value = enumObj[key];
-        if (typeof value === 'number') {
+        if (typeof value === "number") {
             options[key] = value;
         }
     }
@@ -141,8 +148,10 @@ function applysinWaveAnimation() {
     // Update wave uniforms if they exist
     if (splatMesh.material.uniforms.waveTime) {
         splatMesh.material.uniforms.waveTime.value = elapsed;
-        splatMesh.material.uniforms.waveAmplitude.value = viewerOptions.sinWaveAmplitude;
-        splatMesh.material.uniforms.waveFrequency.value = viewerOptions.sinWaveFrequency;
+        splatMesh.material.uniforms.waveAmplitude.value =
+            viewerOptions.sinWaveAmplitude;
+        splatMesh.material.uniforms.waveFrequency.value =
+            viewerOptions.sinWaveFrequency;
     }
 }
 
@@ -150,13 +159,13 @@ function applysinWaveAnimation() {
 function patchSplatShader() {
     const splatMesh = viewer?.splatMesh;
     if (!splatMesh?.material) {
-        console.log('No splatMesh material to patch');
+        console.log("No splatMesh material to patch");
         return;
     }
 
     // Check if already patched
     if (splatMesh.material.uniforms.waveTime) {
-        console.log('Shader already patched');
+        console.log("Shader already patched");
         return;
     }
 
@@ -189,22 +198,23 @@ function patchSplatShader() {
 
     // Inject uniform declarations at the start (after precision)
     let patchedShader = originalVertexShader.replace(
-        'precision highp float;',
-        'precision highp float;\n' + uniformDeclarations
+        "precision highp float;",
+        "precision highp float;\n" + uniformDeclarations,
     );
 
     // Inject wave displacement after splatCenter is computed
     // The line is: vec3 splatCenter = uintBitsToFloat(uvec3(sampledCenterColor.gba));
     patchedShader = patchedShader.replace(
-        'vec3 splatCenter = uintBitsToFloat(uvec3(sampledCenterColor.gba));',
-        'vec3 splatCenter = uintBitsToFloat(uvec3(sampledCenterColor.gba));\n' + waveDisplacement
+        "vec3 splatCenter = uintBitsToFloat(uvec3(sampledCenterColor.gba));",
+        "vec3 splatCenter = uintBitsToFloat(uvec3(sampledCenterColor.gba));\n" +
+            waveDisplacement,
     );
 
     // Apply patched shader
     splatMesh.material.vertexShader = patchedShader;
     splatMesh.material.needsUpdate = true;
 
-    console.log('Shader patched successfully for wave animation');
+    console.log("Shader patched successfully for wave animation");
 }
 
 function startManualLoop(instance) {
@@ -213,10 +223,10 @@ function startManualLoop(instance) {
             return;
         }
         applysinWaveAnimation();
-        if (typeof instance.update === 'function') {
+        if (typeof instance.update === "function") {
             instance.update();
         }
-        if (typeof instance.render === 'function') {
+        if (typeof instance.render === "function") {
             instance.render();
         }
         manualLoopId = requestAnimationFrame(tick);
@@ -230,19 +240,26 @@ function createViewer() {
 
     const instance = new GaussianSplats3D.Viewer({
         rootElement: appEl,
-        cameraUp: [0, 1, 0],
+        cameraUp: [-1, 0, 0],
         initialCameraPosition,
         initialCameraLookAt,
         selfDrivenMode: viewerOptions.selfDrivenMode,
-        renderer: viewerOptions.renderer === 'internal' ? undefined : viewerOptions.renderer,
-        camera: viewerOptions.camera === 'internal' ? undefined : viewerOptions.camera,
+        renderer:
+            viewerOptions.renderer === "internal"
+                ? undefined
+                : viewerOptions.renderer,
+        camera:
+            viewerOptions.camera === "internal"
+                ? undefined
+                : viewerOptions.camera,
         useBuiltInControls: viewerOptions.useBuiltInControls,
         ignoreDevicePixelRatio: viewerOptions.ignoreDevicePixelRatio,
         gpuAcceleratedSort: safeOptions.gpuAcceleratedSort,
         enableSIMDInSort: safeOptions.enableSIMDInSort,
         sharedMemoryForWorkers: safeOptions.sharedMemoryForWorkers,
         integerBasedSort: safeOptions.integerBasedSort,
-        halfPrecisionCovariancesOnGPU: viewerOptions.halfPrecisionCovariancesOnGPU,
+        halfPrecisionCovariancesOnGPU:
+            viewerOptions.halfPrecisionCovariancesOnGPU,
         dynamicScene: viewerOptions.dynamicScene,
         webXRMode: viewerOptions.webXRMode,
         renderMode: viewerOptions.renderMode,
@@ -274,10 +291,10 @@ startGlobalAnimationLoop();
 
 function inferSceneFormat(sourceName) {
     const lowerName = sourceName.toLowerCase();
-    if (lowerName.endsWith('.ksplat')) {
+    if (lowerName.endsWith(".ksplat")) {
         return GaussianSplats3D.SceneFormat.KSplat;
     }
-    if (lowerName.endsWith('.splat')) {
+    if (lowerName.endsWith(".splat")) {
         return GaussianSplats3D.SceneFormat.Splat;
     }
     return GaussianSplats3D.SceneFormat.Ply;
@@ -325,21 +342,25 @@ async function loadSplatScene(path, label, format) {
 
 async function reloadLastScene() {
     if (!lastLoadedScene) {
-        statusEl.textContent = 'No file loaded';
+        statusEl.textContent = "No file loaded";
         return;
     }
 
-    if (lastLoadedScene.type === 'url') {
-        await loadSplatFromUrlInternal(lastLoadedScene.sourceUrl, { persistLastScene: false });
+    if (lastLoadedScene.type === "url") {
+        await loadSplatFromUrlInternal(lastLoadedScene.sourceUrl, {
+            persistLastScene: false,
+        });
         return;
     }
 
-    if (lastLoadedScene.type === 'file') {
-        await loadSplatFromFileInternal(lastLoadedScene.file, { persistLastScene: false });
+    if (lastLoadedScene.type === "file") {
+        await loadSplatFromFileInternal(lastLoadedScene.file, {
+            persistLastScene: false,
+        });
         return;
     }
 
-    statusEl.textContent = 'No file loaded';
+    statusEl.textContent = "No file loaded";
 }
 
 async function rebuildViewer() {
@@ -348,15 +369,19 @@ async function rebuildViewer() {
     }
     rebuildInProgress = true;
 
-    statusEl.textContent = 'Rebuilding viewer...';
+    statusEl.textContent = "Rebuilding viewer...";
 
     try {
-        if (viewerOptions.sharedMemoryForWorkers && !isSharedMemorySupported()) {
+        if (
+            viewerOptions.sharedMemoryForWorkers &&
+            !isSharedMemorySupported()
+        ) {
             viewerOptions.sharedMemoryForWorkers = false;
             if (sharedMemoryController) {
                 sharedMemoryController.updateDisplay();
             }
-            statusEl.textContent = 'Shared memory disabled: crossOriginIsolated is required';
+            statusEl.textContent =
+                "Shared memory disabled: crossOriginIsolated is required";
         }
 
         const previousViewer = viewer;
@@ -367,7 +392,10 @@ async function rebuildViewer() {
             try {
                 await previousViewer.dispose();
             } catch (error) {
-                console.warn('Viewer dispose failed during rebuild, continuing with fresh instance.', error);
+                console.warn(
+                    "Viewer dispose failed during rebuild, continuing with fresh instance.",
+                    error,
+                );
             }
         }
 
@@ -376,7 +404,7 @@ async function rebuildViewer() {
         if (lastLoadedScene) {
             await reloadLastScene();
         } else {
-            statusEl.textContent = 'No file loaded';
+            statusEl.textContent = "No file loaded";
         }
     } finally {
         rebuildInProgress = false;
@@ -399,7 +427,7 @@ async function fallbackFromDynamicMode(reason) {
             await rebuildViewer();
         });
     } catch (error) {
-        statusEl.textContent = 'Failed to recover from dynamic mode error';
+        statusEl.textContent = "Failed to recover from dynamic mode error";
         console.error(error);
     } finally {
         fallbackInProgress = false;
@@ -410,7 +438,9 @@ function isMemoryBoundsErrorMessage(message) {
     if (!message) {
         return false;
     }
-    return String(message).toLowerCase().includes('memory access out of bounds');
+    return String(message)
+        .toLowerCase()
+        .includes("memory access out of bounds");
 }
 
 function resetView() {
@@ -427,15 +457,18 @@ async function loadSplatFromUrl(url) {
     return loadSplatFromUrlInternal(url, { persistLastScene: true });
 }
 
-async function loadSplatFromUrlInternal(url, options = { persistLastScene: true }) {
+async function loadSplatFromUrlInternal(
+    url,
+    options = { persistLastScene: true },
+) {
     const targetUrl = url.trim();
     if (!targetUrl) {
-        statusEl.textContent = 'Enter a scene URL first';
+        statusEl.textContent = "Enter a scene URL first";
         return;
     }
 
     try {
-        const sceneName = targetUrl.split('/').pop() || targetUrl;
+        const sceneName = targetUrl.split("/").pop() || targetUrl;
         const format = inferSceneFormat(sceneName);
 
         const response = await fetch(targetUrl);
@@ -444,8 +477,13 @@ async function loadSplatFromUrlInternal(url, options = { persistLastScene: true 
         }
 
         const arrayBuffer = await response.arrayBuffer();
-        if (format === GaussianSplats3D.SceneFormat.KSplat && arrayBuffer.byteLength < 4096) {
-            throw new Error('Invalid KSplat data (file too small or wrong URL)');
+        if (
+            format === GaussianSplats3D.SceneFormat.KSplat &&
+            arrayBuffer.byteLength < 4096
+        ) {
+            throw new Error(
+                "Invalid KSplat data (file too small or wrong URL)",
+            );
         }
 
         if (objectUrl) {
@@ -459,14 +497,14 @@ async function loadSplatFromUrlInternal(url, options = { persistLastScene: true 
 
         if (options.persistLastScene) {
             lastLoadedScene = {
-                type: 'url',
+                type: "url",
                 sourceUrl: targetUrl,
                 label: sceneName,
                 format,
             };
         }
     } catch (error) {
-        statusEl.textContent = `Failed to load ${targetUrl} (${error.message || 'invalid data'})`;
+        statusEl.textContent = `Failed to load ${targetUrl} (${error.message || "invalid data"})`;
         console.error(error);
     }
 }
@@ -475,7 +513,10 @@ async function loadSplatFromFile(file) {
     return loadSplatFromFileInternal(file, { persistLastScene: true });
 }
 
-async function loadSplatFromFileInternal(file, options = { persistLastScene: true }) {
+async function loadSplatFromFileInternal(
+    file,
+    options = { persistLastScene: true },
+) {
     if (objectUrl) {
         URL.revokeObjectURL(objectUrl);
     }
@@ -487,7 +528,7 @@ async function loadSplatFromFileInternal(file, options = { persistLastScene: tru
 
         if (options.persistLastScene) {
             lastLoadedScene = {
-                type: 'file',
+                type: "file",
                 file,
                 label: file.name,
                 format,
@@ -499,7 +540,7 @@ async function loadSplatFromFileInternal(file, options = { persistLastScene: tru
     }
 }
 
-fileInput.addEventListener('change', async (event) => {
+fileInput.addEventListener("change", async (event) => {
     const file = event.target.files?.[0];
     if (!file) {
         return;
@@ -510,123 +551,220 @@ fileInput.addEventListener('change', async (event) => {
     });
 });
 
-loadUrlBtn.addEventListener('click', () => {
+loadUrlBtn.addEventListener("click", () => {
     queueViewerOperation(async () => {
         await loadSplatFromUrl(urlInput.value);
     });
 });
 
-urlInput.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
+urlInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
         queueViewerOperation(async () => {
             await loadSplatFromUrl(urlInput.value);
         });
     }
 });
 
-resetViewBtn.addEventListener('click', () => {
+resetViewBtn.addEventListener("click", () => {
     resetView();
 });
 
-helpToggleBtn.addEventListener('click', () => {
+helpToggleBtn.addEventListener("click", () => {
     const isOpen = !helpPanelEl.hidden;
     helpPanelEl.hidden = isOpen;
-    helpToggleBtn.setAttribute('aria-expanded', String(!isOpen));
+    helpToggleBtn.setAttribute("aria-expanded", String(!isOpen));
 });
 
-const advancedFolder = gui.addFolder('Advanced Options');
+const advancedFolder = gui.addFolder("Advanced Options");
 
-const rebuildOnChange = (controller) => controller.onFinishChange(async () => {
-    const rollbackOptions = { ...lastWorkingViewerOptions };
-
-    try {
-        await queueViewerOperation(async () => {
-            await rebuildViewer();
-        });
-        lastWorkingViewerOptions = { ...viewerOptions };
-    } catch (error) {
-        Object.assign(viewerOptions, rollbackOptions);
-        refreshGuiDisplay();
-        statusEl.textContent = 'Option failed; reverted to last working config';
-        console.error(error);
+const rebuildOnChange = (controller) =>
+    controller.onFinishChange(async () => {
+        const rollbackOptions = { ...lastWorkingViewerOptions };
 
         try {
             await queueViewerOperation(async () => {
                 await rebuildViewer();
             });
-        } catch (recoveryError) {
-            statusEl.textContent = 'Failed to recover viewer after rollback';
-            console.error(recoveryError);
-        }
-    }
-});
+            lastWorkingViewerOptions = { ...viewerOptions };
+        } catch (error) {
+            Object.assign(viewerOptions, rollbackOptions);
+            refreshGuiDisplay();
+            statusEl.textContent =
+                "Option failed; reverted to last working config";
+            console.error(error);
 
-rebuildOnChange(advancedFolder.add(viewerOptions, 'selfDrivenMode').name('selfDrivenMode'));
-advancedFolder.add(viewerOptions, 'renderer', { internal: 'internal' }).name('renderer');
-advancedFolder.add(viewerOptions, 'camera', { internal: 'internal' }).name('camera');
-rebuildOnChange(advancedFolder.add(viewerOptions, 'useBuiltInControls').name('useBuiltInControls'));
-rebuildOnChange(advancedFolder.add(viewerOptions, 'ignoreDevicePixelRatio').name('ignoreDevicePixelRatio'));
-rebuildOnChange(advancedFolder.add(viewerOptions, 'gpuAcceleratedSort').name('gpuAcceleratedSort'));
-rebuildOnChange(advancedFolder.add(viewerOptions, 'enableSIMDInSort').name('enableSIMDInSort'));
-sharedMemoryController = advancedFolder.add(viewerOptions, 'sharedMemoryForWorkers').name('sharedMemoryForWorkers');
-rebuildOnChange(sharedMemoryController);
-rebuildOnChange(advancedFolder.add(viewerOptions, 'integerBasedSort').name('integerBasedSort'));
-rebuildOnChange(advancedFolder.add(viewerOptions, 'halfPrecisionCovariancesOnGPU').name('halfPrecisionCovariancesOnGPU'));
-dynamicSceneController = advancedFolder.add(viewerOptions, 'dynamicScene').name('dynamicScene');
-rebuildOnChange(dynamicSceneController);
-rebuildOnChange(advancedFolder.add(viewerOptions, 'webXRMode', getEnumOptions(GaussianSplats3D.WebXRMode)).name('webXRMode'));
-rebuildOnChange(advancedFolder.add(viewerOptions, 'renderMode', getEnumOptions(GaussianSplats3D.RenderMode)).name('renderMode'));
+            try {
+                await queueViewerOperation(async () => {
+                    await rebuildViewer();
+                });
+            } catch (recoveryError) {
+                statusEl.textContent =
+                    "Failed to recover viewer after rollback";
+                console.error(recoveryError);
+            }
+        }
+    });
+
+rebuildOnChange(
+    advancedFolder.add(viewerOptions, "selfDrivenMode").name("selfDrivenMode"),
+);
+advancedFolder
+    .add(viewerOptions, "renderer", { internal: "internal" })
+    .name("renderer");
+advancedFolder
+    .add(viewerOptions, "camera", { internal: "internal" })
+    .name("camera");
 rebuildOnChange(
     advancedFolder
-        .add(viewerOptions, 'sceneRevealMode', getEnumOptions(GaussianSplats3D.SceneRevealMode))
-        .name('sceneRevealMode')
+        .add(viewerOptions, "useBuiltInControls")
+        .name("useBuiltInControls"),
 );
-rebuildOnChange(advancedFolder.add(viewerOptions, 'antialiased').name('antialiased'));
-rebuildOnChange(advancedFolder.add(viewerOptions, 'focalAdjustment', 0.1, 3, 0.01).name('focalAdjustment'));
-rebuildOnChange(advancedFolder.add(viewerOptions, 'logLevel', getEnumOptions(GaussianSplats3D.LogLevel)).name('logLevel'));
-rebuildOnChange(advancedFolder.add(viewerOptions, 'sphericalHarmonicsDegree', 0, 2, 1).name('sphericalHarmonicsDegree'));
-rebuildOnChange(advancedFolder.add(viewerOptions, 'enableOptionalEffects').name('enableOptionalEffects'));
-rebuildOnChange(advancedFolder.add(viewerOptions, 'inMemoryCompressionLevel', 0, 2, 1).name('inMemoryCompressionLevel'));
-rebuildOnChange(advancedFolder.add(viewerOptions, 'freeIntermediateSplatData').name('freeIntermediateSplatData'));
+rebuildOnChange(
+    advancedFolder
+        .add(viewerOptions, "ignoreDevicePixelRatio")
+        .name("ignoreDevicePixelRatio"),
+);
+rebuildOnChange(
+    advancedFolder
+        .add(viewerOptions, "gpuAcceleratedSort")
+        .name("gpuAcceleratedSort"),
+);
+rebuildOnChange(
+    advancedFolder
+        .add(viewerOptions, "enableSIMDInSort")
+        .name("enableSIMDInSort"),
+);
+sharedMemoryController = advancedFolder
+    .add(viewerOptions, "sharedMemoryForWorkers")
+    .name("sharedMemoryForWorkers");
+rebuildOnChange(sharedMemoryController);
+rebuildOnChange(
+    advancedFolder
+        .add(viewerOptions, "integerBasedSort")
+        .name("integerBasedSort"),
+);
+rebuildOnChange(
+    advancedFolder
+        .add(viewerOptions, "halfPrecisionCovariancesOnGPU")
+        .name("halfPrecisionCovariancesOnGPU"),
+);
+dynamicSceneController = advancedFolder
+    .add(viewerOptions, "dynamicScene")
+    .name("dynamicScene");
+rebuildOnChange(dynamicSceneController);
+rebuildOnChange(
+    advancedFolder
+        .add(
+            viewerOptions,
+            "webXRMode",
+            getEnumOptions(GaussianSplats3D.WebXRMode),
+        )
+        .name("webXRMode"),
+);
+rebuildOnChange(
+    advancedFolder
+        .add(
+            viewerOptions,
+            "renderMode",
+            getEnumOptions(GaussianSplats3D.RenderMode),
+        )
+        .name("renderMode"),
+);
+rebuildOnChange(
+    advancedFolder
+        .add(
+            viewerOptions,
+            "sceneRevealMode",
+            getEnumOptions(GaussianSplats3D.SceneRevealMode),
+        )
+        .name("sceneRevealMode"),
+);
+rebuildOnChange(
+    advancedFolder.add(viewerOptions, "antialiased").name("antialiased"),
+);
+rebuildOnChange(
+    advancedFolder
+        .add(viewerOptions, "focalAdjustment", 0.1, 3, 0.01)
+        .name("focalAdjustment"),
+);
+rebuildOnChange(
+    advancedFolder
+        .add(
+            viewerOptions,
+            "logLevel",
+            getEnumOptions(GaussianSplats3D.LogLevel),
+        )
+        .name("logLevel"),
+);
+rebuildOnChange(
+    advancedFolder
+        .add(viewerOptions, "sphericalHarmonicsDegree", 0, 2, 1)
+        .name("sphericalHarmonicsDegree"),
+);
+rebuildOnChange(
+    advancedFolder
+        .add(viewerOptions, "enableOptionalEffects")
+        .name("enableOptionalEffects"),
+);
+rebuildOnChange(
+    advancedFolder
+        .add(viewerOptions, "inMemoryCompressionLevel", 0, 2, 1)
+        .name("inMemoryCompressionLevel"),
+);
+rebuildOnChange(
+    advancedFolder
+        .add(viewerOptions, "freeIntermediateSplatData")
+        .name("freeIntermediateSplatData"),
+);
 
-advancedFolder.add(viewerOptions, 'sinWaveAnimation').name('Sin Wave').onChange(() => {
-    const splatMesh = viewer?.splatMesh;
-    if (viewerOptions.sinWaveAnimation) {
-        animationStartTime = Date.now();
-        // Enable wave in shader
-        if (splatMesh?.material?.uniforms?.waveEnabled) {
-            splatMesh.material.uniforms.waveEnabled.value = 1;
+advancedFolder
+    .add(viewerOptions, "sinWaveAnimation")
+    .name("Sin Wave")
+    .onChange(() => {
+        const splatMesh = viewer?.splatMesh;
+        if (viewerOptions.sinWaveAnimation) {
+            animationStartTime = Date.now();
+            // Enable wave in shader
+            if (splatMesh?.material?.uniforms?.waveEnabled) {
+                splatMesh.material.uniforms.waveEnabled.value = 1;
+            }
+        } else {
+            // Disable wave in shader
+            if (splatMesh?.material?.uniforms?.waveEnabled) {
+                splatMesh.material.uniforms.waveEnabled.value = 0;
+            }
         }
-    } else {
-        // Disable wave in shader
-        if (splatMesh?.material?.uniforms?.waveEnabled) {
-            splatMesh.material.uniforms.waveEnabled.value = 0;
-        }
-    }
-});
-advancedFolder.add(viewerOptions, 'sinWaveAmplitude', 0, 5, 0.01).name('Wave Amplitude');
-advancedFolder.add(viewerOptions, 'sinWaveFrequency', 0.1, 10, 0.01).name('Wave Frequency');
+    });
+advancedFolder
+    .add(viewerOptions, "sinWaveAmplitude", 0, 5, 0.01)
+    .name("Wave Amplitude");
+advancedFolder
+    .add(viewerOptions, "sinWaveFrequency", 0.1, 10, 0.01)
+    .name("Wave Frequency");
 
 advancedFolder.close();
 
-const defaultStartupUrl = (urlInput.value || 'data/chain.ksplat').trim();
+const defaultStartupUrl = (urlInput.value || "data/bubble.splat").trim();
 if (defaultStartupUrl) {
     queueViewerOperation(async () => {
         await loadSplatFromUrl(defaultStartupUrl);
     }).catch(() => {
-        statusEl.textContent = 'No file loaded';
+        statusEl.textContent = "No file loaded";
     });
 }
 
-window.addEventListener('error', (event) => {
-    if (isMemoryBoundsErrorMessage(event?.message) || isMemoryBoundsErrorMessage(event?.error?.message)) {
-        fallbackFromDynamicMode('WASM sort error');
+window.addEventListener("error", (event) => {
+    if (
+        isMemoryBoundsErrorMessage(event?.message) ||
+        isMemoryBoundsErrorMessage(event?.error?.message)
+    ) {
+        fallbackFromDynamicMode("WASM sort error");
     }
 });
 
-window.addEventListener('unhandledrejection', (event) => {
+window.addEventListener("unhandledrejection", (event) => {
     const reasonMessage = event?.reason?.message || event?.reason;
     if (isMemoryBoundsErrorMessage(reasonMessage)) {
-        fallbackFromDynamicMode('WASM sort error');
+        fallbackFromDynamicMode("WASM sort error");
     }
 });
