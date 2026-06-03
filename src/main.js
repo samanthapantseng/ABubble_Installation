@@ -68,11 +68,14 @@ let animationStartTime = Date.now();
 let globalAnimationFrameId = 0;
 let cameraMovementStartTime = Date.now();
 const pulleyCameraRange = {
-    rawTop: -10,
-    rawBottom: 1,
+    rawTop: -9,
+    //check that csv data fits these parameters
+    rawBottom: 0,
     yTop: 60,
     yBottom: 0,
 };
+const pulleySmoothingFactor = 0.0035;
+// the lower, the smoother
 let projectionUiVisible = true;
 
 function startGlobalAnimationLoop() {
@@ -244,8 +247,12 @@ function applyCameraMovement() {
             pulleyCameraRange.yTop -
             normalized * (pulleyCameraRange.yTop - pulleyCameraRange.yBottom);
 
+        // Smooth the camera response without altering the raw OSC value.
+        viewer.camera.position.y +=
+            (newY - viewer.camera.position.y) * pulleySmoothingFactor;
+
         viewer.camera.position.y = Math.max(
-            Math.min(newY, pulleyCameraRange.yTop),
+            Math.min(viewer.camera.position.y, pulleyCameraRange.yTop),
             pulleyCameraRange.yBottom,
         );
 
