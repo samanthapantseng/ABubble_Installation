@@ -40,6 +40,7 @@
                 <li><strong>I</strong>: Display debug info panel</li>
                 <li><strong>C</strong>: Toggle mesh cursor</li>
                 <li><strong>U</strong>: Toggle controls orientation marker</li>
+                <li><strong>H</strong>: Hide or show all menus</li>
                 <li><strong>←</strong>: Rotate camera-up counter-clockwise</li>
                 <li><strong>→</strong>: Rotate camera-up clockwise</li>
                 <li><strong>P</strong>: Toggle point-cloud mode</li>
@@ -49,6 +50,26 @@
             </ul>
         </div>
         <div id="app"></div>
+
+        <script src="https://cdn.jsdelivr.net/npm/osc/dist/osc-browser.min.js"></script>
+        <script>
+            const oscPort = new osc.WebSocketPort({
+                url: "ws://localhost:3000",
+                metadata: true,
+            });
+            oscPort.open();
+
+            window.__pulley = { value: -10 };
+
+            oscPort.on("message", (oscMsg) => {
+                if (oscMsg.address === "/pulley") {
+                    const value = oscMsg.args?.[0]?.value;
+                    if (Number.isFinite(value)) {
+                        window.__pulley.value = value;
+                    }
+                }
+            });
+        </script>
         <script type="module" src="/src/main.js"></script>
     </body>
 </html>

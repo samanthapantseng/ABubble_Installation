@@ -5,6 +5,7 @@ import GUI from "lil-gui";
 
 const appEl = document.getElementById("app");
 const statusEl = document.getElementById("status");
+const uiEl = document.getElementById("ui");
 const fileInput = document.getElementById("plyInput");
 const urlInput = document.getElementById("plyUrl");
 const loadUrlBtn = document.getElementById("loadUrl");
@@ -44,9 +45,11 @@ const viewerOptions = {
     sinWaveFrequency: 0.26,
     waveDisplacementAxis: "xyz",
     cameraMovement: true,
+    cameraMovementMode: "pulley",
+    pulleyTestValue: -10,
     cameraMovementSpeed: 0.7,
     proximityRevealMode: true,
-    proximityRevealWindowSize: 7,
+    proximityRevealWindowSize: 10,
 };
 
 const gui = new GUI({ title: "Viewer" });
@@ -64,6 +67,13 @@ let lastWorkingViewerOptions = { ...viewerOptions };
 let animationStartTime = Date.now();
 let globalAnimationFrameId = 0;
 let cameraMovementStartTime = Date.now();
+const pulleyCameraRange = {
+    rawTop: -10,
+    rawBottom: 1,
+    yTop: 60,
+    yBottom: 0,
+};
+let projectionUiVisible = true;
 
 function startGlobalAnimationLoop() {
     if (globalAnimationFrameId) {
@@ -84,6 +94,30 @@ function refreshGuiDisplay() {
             controller.updateDisplay(),
         );
     }
+}
+
+function setProjectionUiVisible(visible) {
+    projectionUiVisible = visible;
+
+    if (uiEl) {
+        uiEl.style.display = visible ? "" : "none";
+    }
+
+    if (helpPanelEl) {
+        helpPanelEl.hidden = !visible;
+    }
+
+    if (helpToggleBtn) {
+        helpToggleBtn.setAttribute("aria-expanded", String(visible));
+    }
+
+    if (gui?.domElement) {
+        gui.domElement.style.display = visible ? "" : "none";
+    }
+}
+
+function toggleProjectionUi() {
+    setProjectionUiVisible(!projectionUiVisible);
 }
 
 function queueViewerOperation(operation) {
@@ -193,8 +227,36 @@ function applyCameraMovement() {
         return;
     }
 
+    if (viewerOptions.cameraMovementMode === "pulley") {
+        const pulley = window.__pulley;
+        if (!pulley || !Number.isFinite(pulley.value)) {
+            return;
+        }
+
+        const rawValue = Math.max(
+            Math.min(pulley.value, pulleyCameraRange.rawBottom),
+            pulleyCameraRange.rawTop,
+        );
+        const normalized =
+            (rawValue - pulleyCameraRange.rawTop) /
+            (pulleyCameraRange.rawBottom - pulleyCameraRange.rawTop);
+        const newY =
+            pulleyCameraRange.yTop -
+            normalized * (pulleyCameraRange.yTop - pulleyCameraRange.yBottom);
+
+        viewer.camera.position.y = Math.max(
+            Math.min(newY, pulleyCameraRange.yTop),
+            pulleyCameraRange.yBottom,
+        );
+
+        if (viewer.controls?.update) {
+            viewer.controls.update();
+        }
+        return;
+    }
+
     const startY = 60;
-    const endY = 10;
+    const endY = 0;
     const totalDistance = Math.abs(startY - endY);
     const cycleDuration =
         (totalDistance / viewerOptions.cameraMovementSpeed) * 2;
@@ -737,6 +799,25 @@ helpToggleBtn.addEventListener("click", () => {
     helpToggleBtn.setAttribute("aria-expanded", String(!isOpen));
 });
 
+window.addEventListener("keydown", (event) => {
+    if (event.key.toLowerCase() !== "h") {
+        return;
+    }
+
+    const activeElement = document.activeElement;
+    const isTypingTarget =
+        activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement ||
+        activeElement?.isContentEditable === true;
+
+    if (isTypingTarget) {
+        return;
+    }
+
+    event.preventDefault();
+    toggleProjectionUi();
+});
+
 const advancedFolder = gui.addFolder("Advanced Options");
 
 const rebuildOnChange = (controller) =>
@@ -915,6 +996,21 @@ advancedFolder
         if (viewerOptions.cameraMovement) {
             cameraMovementStartTime = Date.now();
         }
+    });
+advancedFolder
+    .add(viewerOptions, "cameraMovementMode", {
+        Pulley: "pulley",
+        Automatic: "automatic",
+    })
+    .name("Camera Mode");
+advancedFolder
+    .add(viewerOptions, "pulleyTestValue", -10, 1, 0.01)
+    .name("Pulley Test Value")
+    .onChange((value) => {
+        if (!window.__pulley) {
+            window.__pulley = {};
+        }
+        window.__pulley.value = value;
     });
 advancedFolder
     .add(viewerOptions, "cameraMovementSpeed", 0.1, 5, 0.1)
