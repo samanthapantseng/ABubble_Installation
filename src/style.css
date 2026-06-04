@@ -21,6 +21,33 @@ body {
     height: 100%;
 }
 
+#app.projection-circular {
+    background: #000;
+    --circle-size: 48vmin;
+    --edge-feather: 10vmin;
+}
+
+#app.projection-circular canvas {
+    -webkit-mask-image: radial-gradient(
+        circle var(--circle-size) at 50% 50%,
+        #000 calc(100% - var(--edge-feather)),
+        transparent 100%
+    );
+    mask-image: radial-gradient(
+        circle var(--circle-size) at 50% 50%,
+        #851212 calc(100% - var(--edge-feather)),
+        transparent 100%
+    );
+}
+
+@supports not (
+    mask-image: radial-gradient(circle at center, #000 50%, transparent 100%)
+) {
+    #app.projection-circular canvas {
+        clip-path: circle(var(--circle-size) at 50% 50%);
+    }
+}
+
 #ui {
     position: fixed;
     top: 12px;

@@ -50,6 +50,7 @@ const viewerOptions = {
     cameraMovementSpeed: 0.7,
     proximityRevealMode: true,
     proximityRevealWindowSize: 10,
+    circularProjection: false,
 };
 
 const gui = new GUI({ title: "Viewer" });
@@ -77,6 +78,7 @@ const pulleyCameraRange = {
 const pulleySmoothingFactor = 0.0025;
 // the lower, the smoother
 let projectionUiVisible = true;
+let projectionModeController = null;
 
 function startGlobalAnimationLoop() {
     if (globalAnimationFrameId) {
@@ -121,6 +123,22 @@ function setProjectionUiVisible(visible) {
 
 function toggleProjectionUi() {
     setProjectionUiVisible(!projectionUiVisible);
+}
+
+function setCircularProjectionVisible(visible) {
+    viewerOptions.circularProjection = visible;
+
+    if (appEl) {
+        appEl.classList.toggle("projection-circular", visible);
+    }
+
+    if (projectionModeController) {
+        projectionModeController.updateDisplay();
+    }
+}
+
+function toggleCircularProjectionVisible() {
+    setCircularProjectionVisible(!viewerOptions.circularProjection);
 }
 
 function queueViewerOperation(operation) {
@@ -807,7 +825,8 @@ helpToggleBtn.addEventListener("click", () => {
 });
 
 window.addEventListener("keydown", (event) => {
-    if (event.key.toLowerCase() !== "h") {
+    const key = event.key.toLowerCase();
+    if (key !== "h" && key !== "x") {
         return;
     }
 
@@ -822,7 +841,12 @@ window.addEventListener("keydown", (event) => {
     }
 
     event.preventDefault();
-    toggleProjectionUi();
+
+    if (key === "h") {
+        toggleProjectionUi();
+    } else if (key === "x") {
+        toggleCircularProjectionVisible();
+    }
 });
 
 const advancedFolder = gui.addFolder("Advanced Options");
@@ -1030,7 +1054,16 @@ advancedFolder
     .add(viewerOptions, "proximityRevealWindowSize", 5, 50, 1)
     .name("Reveal Window Size");
 
+projectionModeController = advancedFolder
+    .add(viewerOptions, "circularProjection")
+    .name("Circular Projection")
+    .onChange((value) => {
+        setCircularProjectionVisible(value);
+    });
+
 advancedFolder.close();
+
+setCircularProjectionVisible(viewerOptions.circularProjection);
 
 const defaultStartupUrl = (urlInput.value || "data/bubble.splat").trim();
 if (defaultStartupUrl) {
