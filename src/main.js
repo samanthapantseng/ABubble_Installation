@@ -74,7 +74,7 @@ const pulleyCameraRange = {
     yTop: 60,
     yBottom: 0,
 };
-const pulleySmoothingFactor = 0.0035;
+const pulleySmoothingFactor = 0.0025;
 // the lower, the smoother
 let projectionUiVisible = true;
 
