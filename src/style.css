@@ -31,12 +31,12 @@ body {
     -webkit-mask-image: radial-gradient(
         circle var(--circle-size) at 50% 50%,
         #000 calc(100% - var(--edge-feather)),
-        transparent 100%x
+        transparent 100%
     );
     mask-image: radial-gradient(
         circle var(--circle-size) at 50% 50%,
         #000 calc(100% - var(--edge-feather)),
-        transparxxent 100%
+        transparent 100%
     );
 }
 
