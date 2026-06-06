@@ -15,7 +15,7 @@
 #X obj 190 131 + 1;
 #X obj 150 177 % 48;
 #X msg 329 114 read 260605_waves_2.csv;
-#X obj 148 92 metro 5000;
+#X obj 148 92 metro 15000;
 #X connect 0 0 16 0;
 #X connect 1 0 2 0;
 #X connect 1 0 13 0;
