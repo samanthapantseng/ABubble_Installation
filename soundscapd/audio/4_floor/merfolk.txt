@@ -1,5 +1,5 @@
-/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/4_floor/merfolk-01.wav;
-/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/4_floor/merfolk-02.wav;
-/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/4_floor/merfolk-03.wav;
-/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/4_floor/merfolk-05.wav;
+audio/4_floor/merfolk-01.wav;
+audio/4_floor/merfolk-02.wav;
+audio/4_floor/merfolk-03.wav;
+audio/4_floor/merfolk-05.wav;
 
