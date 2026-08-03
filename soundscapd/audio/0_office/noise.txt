@@ -1,0 +1,6 @@
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/0_office/office-drawer.wav;
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/0_office/squeak.wav;
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/0_office/stamp.wav;
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/0_office/keyboard1.wav;
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/0_office/keyboard2.wav;
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/0_office/keyboard3.wav;

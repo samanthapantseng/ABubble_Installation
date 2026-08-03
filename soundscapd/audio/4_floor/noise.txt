@@ -1,0 +1,6 @@
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/4_floor/clicky_dolphin_2.wav;
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/4_floor/effect.wav;
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/4_floor/ambient.wav;
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/4_floor/groan.wav;
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/4_floor/clicky.wav;
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/4_floor/ping.wav;

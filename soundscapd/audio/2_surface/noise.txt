@@ -1,0 +1,7 @@
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/2_surface/clank1.wav;
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/2_surface/clank2.wav;
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/2_surface/clank3.wav;
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/2_surface/wood.wav;
+/home/luca/IAD_Msc/Ecological_Interactions/audio/ars/2_surface/creak.wav;
+
+
