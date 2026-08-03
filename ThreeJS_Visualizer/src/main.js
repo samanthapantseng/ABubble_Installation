@@ -48,6 +48,10 @@ const viewerOptions = {
     cameraMovementMode: "pulley",
     pulleyTestValue: -10,
     cameraMovementSpeed: 0.7,
+    // --- Tune these three live in the "Advanced Options" GUI panel while testing ---
+    pulleyJourneyDuration: 100, // seconds for a full top-to-bottom (or reverse) V-triggered glide
+    pulleyOscillationAmplitude: 2, // +/- units of wave-driven wobble layered on top
+    pulleyOscillationSmoothing: 0.01, // 0-1, how quickly the wobble eases toward each new OSC sample (lower = smoother/slower)
     proximityRevealMode: true,
     proximityRevealWindowSize: 10,
     circularProjection: false,
@@ -75,8 +79,11 @@ const pulleyCameraRange = {
     yTop: 80,
     yBottom: 0,
 };
-const pulleySmoothingFactor = 0.001;
-// the lower, the smoother
+// Journey: manual V-triggered glide between top (progress 0) and bottom (progress 1).
+let pulleyJourneyProgress = 0;
+let pulleyJourneyTarget = 0;
+let pulleyOscillationOffset = 0;
+let pulleyLastTickTime = Date.now();
 let projectionUiVisible = true;
 let projectionModeController = null;
 
@@ -85,9 +92,14 @@ function startGlobalAnimationLoop() {
         cancelAnimationFrame(globalAnimationFrameId);
     }
     const tick = () => {
-        applyWaveAnimation();
-        applyCameraMovement();
-        applyProximityReveal();
+        window.__debugFrameCount = (window.__debugFrameCount || 0) + 1;
+        try {
+            applyWaveAnimation();
+            applyCameraMovement();
+            applyProximityReveal();
+        } catch (err) {
+            window.__debugTickError = String((err && err.stack) || err);
+        }
         globalAnimationFrameId = requestAnimationFrame(tick);
     };
     globalAnimationFrameId = requestAnimationFrame(tick);
@@ -243,35 +255,84 @@ function applyWaveAnimation() {
     }
 }
 
+function easeInOutQuad(t) {
+    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+
+function togglePulleyJourney() {
+    pulleyJourneyTarget = pulleyJourneyTarget === 0 ? 1 : 0;
+}
+
+window.__debugPulleyState = () => ({
+    progress: pulleyJourneyProgress,
+    target: pulleyJourneyTarget,
+    offset: pulleyOscillationOffset,
+    cameraMovement: viewerOptions.cameraMovement,
+    mode: viewerOptions.cameraMovementMode,
+    amplitude: viewerOptions.pulleyOscillationAmplitude,
+    smoothing: viewerOptions.pulleyOscillationSmoothing,
+    duration: viewerOptions.pulleyJourneyDuration,
+});
+
 function applyCameraMovement() {
     if (!viewer || !viewer.camera || !viewerOptions.cameraMovement) {
         return;
     }
 
     if (viewerOptions.cameraMovementMode === "pulley") {
-        const pulley = window.__pulley;
-        if (!pulley || !Number.isFinite(pulley.value)) {
-            return;
+        const now = Date.now();
+        // Clamp dt so a tab switch / stall doesn't cause a big jump on return.
+        const dt = Math.min((now - pulleyLastTickTime) / 1000, 0.1);
+        pulleyLastTickTime = now;
+
+        // Advance the V-triggered journey toward its target at a rate set by
+        // pulleyJourneyDuration (a full top<->bottom trip takes that many seconds).
+        const rate = dt / Math.max(viewerOptions.pulleyJourneyDuration, 0.01);
+        if (pulleyJourneyProgress < pulleyJourneyTarget) {
+            pulleyJourneyProgress = Math.min(
+                pulleyJourneyProgress + rate,
+                pulleyJourneyTarget,
+            );
+        } else if (pulleyJourneyProgress > pulleyJourneyTarget) {
+            pulleyJourneyProgress = Math.max(
+                pulleyJourneyProgress - rate,
+                pulleyJourneyTarget,
+            );
         }
 
-        const rawValue = Math.max(
-            Math.min(pulley.value, pulleyCameraRange.rawBottom),
-            pulleyCameraRange.rawTop,
-        );
-        const normalized =
-            (rawValue - pulleyCameraRange.rawTop) /
-            (pulleyCameraRange.rawBottom - pulleyCameraRange.rawTop);
-        const newY =
-            pulleyCameraRange.yBottom +
-            normalized * (pulleyCameraRange.yTop - pulleyCameraRange.yBottom);
+        const easedProgress = easeInOutQuad(pulleyJourneyProgress);
+        const baseY =
+            pulleyCameraRange.yTop -
+            easedProgress *
+                (pulleyCameraRange.yTop - pulleyCameraRange.yBottom);
 
-        // Smooth the camera response without altering the raw OSC value.
-        viewer.camera.position.y +=
-            (newY - viewer.camera.position.y) * pulleySmoothingFactor;
+        // Live wave data drives a small wobble layered on top of baseY, not the
+        // camera's full range. Center/scale the raw -14..6 OSC value into a small
+        // +/- offset, then ease toward it so sparse OSC updates don't cause pops.
+        const pulley = window.__pulley;
+        let targetOffset = 0;
+        if (pulley && Number.isFinite(pulley.value)) {
+            const rawMid =
+                (pulleyCameraRange.rawTop + pulleyCameraRange.rawBottom) / 2;
+            const rawHalfRange =
+                (pulleyCameraRange.rawBottom - pulleyCameraRange.rawTop) / 2;
+            const normalized = (pulley.value - rawMid) / rawHalfRange;
+            targetOffset =
+                normalized * viewerOptions.pulleyOscillationAmplitude;
+        }
+        pulleyOscillationOffset +=
+            (targetOffset - pulleyOscillationOffset) *
+            viewerOptions.pulleyOscillationSmoothing;
 
+        const newY = baseY + pulleyOscillationOffset;
         viewer.camera.position.y = Math.max(
-            Math.min(viewer.camera.position.y, pulleyCameraRange.yTop),
-            pulleyCameraRange.yBottom,
+            Math.min(
+                newY,
+                pulleyCameraRange.yTop +
+                    viewerOptions.pulleyOscillationAmplitude,
+            ),
+            pulleyCameraRange.yBottom -
+                viewerOptions.pulleyOscillationAmplitude,
         );
 
         if (viewer.controls?.update) {
@@ -533,6 +594,7 @@ function createViewer() {
 }
 
 viewer = createViewer();
+window.__debugViewer = viewer; // TEMP: for manual verification, remove before shipping
 
 // Start global animation loop for wave effect
 startGlobalAnimationLoop();
@@ -585,6 +647,7 @@ async function loadSplatScene(path, label, format) {
     // Reset animation timer when loading new scene
     animationStartTime = Date.now();
     cameraMovementStartTime = Date.now();
+    pulleyLastTickTime = Date.now();
 
     statusEl.textContent = `${label} loaded`;
 }
@@ -826,7 +889,7 @@ helpToggleBtn.addEventListener("click", () => {
 
 window.addEventListener("keydown", (event) => {
     const key = event.key.toLowerCase();
-    if (key !== "h" && key !== "x") {
+    if (key !== "h" && key !== "x" && key !== "v") {
         return;
     }
 
@@ -846,6 +909,8 @@ window.addEventListener("keydown", (event) => {
         toggleProjectionUi();
     } else if (key === "x") {
         toggleCircularProjectionVisible();
+    } else if (key === "v") {
+        togglePulleyJourney();
     }
 });
 
@@ -1026,6 +1091,7 @@ advancedFolder
     .onChange(() => {
         if (viewerOptions.cameraMovement) {
             cameraMovementStartTime = Date.now();
+            pulleyLastTickTime = Date.now();
         }
     });
 advancedFolder
@@ -1046,6 +1112,15 @@ advancedFolder
 advancedFolder
     .add(viewerOptions, "cameraMovementSpeed", 0.1, 5, 0.1)
     .name("Camera Speed");
+advancedFolder
+    .add(viewerOptions, "pulleyJourneyDuration", 5, 180, 1)
+    .name("V Journey Duration (s)");
+advancedFolder
+    .add(viewerOptions, "pulleyOscillationAmplitude", 0, 10, 0.1)
+    .name("Wave Oscillation Amplitude");
+advancedFolder
+    .add(viewerOptions, "pulleyOscillationSmoothing", 0.001, 0.2, 0.001)
+    .name("Wave Oscillation Smoothing");
 
 advancedFolder
     .add(viewerOptions, "proximityRevealMode")
