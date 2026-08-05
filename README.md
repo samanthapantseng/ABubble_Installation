@@ -62,13 +62,13 @@ node main.js
 
 Notes on ports & addresses
 
-- `osc-bridge` opens a UDP listener (default `localPort: 7000`) to receive OSC from local PD/UDP senders and a WebSocket server on `ws://localhost:3000` for browser clients.
-- The browser client in `ThreeJS_Visualizer/index.html` connects to `ws://localhost:3000` and listens for `/pulley` messages to drive camera movement.
+- `osc-bridge` opens two UDP listeners — `localPort: 7000` for wave data and `localPort: 7021` for the V-key trigger — and relays both to a single WebSocket server on `ws://localhost:3000` for browser clients.
+- The browser client in `ThreeJS_Visualizer/index.html` connects to `ws://localhost:3000` and listens for `/pulley` messages (wave data, drives the idle oscillation) and `/trigger` messages (1/0, drives the top/bottom camera journey).
 - `Buoy_Data/main.js` sends UDP OSC messages by default to `127.0.0.1:8000` with address `/buoy`. You may need to adjust this or run another UDP listener (e.g., Pure Data) to forward to the bridge if desired.
 
 Using Pure Data
 
-- Open the Pure Data patches in `sender/` (for example `sender/sender.pd` or `sender/buoyData.pd`) to send OSC messages via UDP to the bridge. Configure the patch to target `localhost` and port `7000` if you want the bridge to receive them.
+- Open the Pure Data patches in `sender/` to send OSC messages via UDP to the bridge: `sender/buoyData.pd` targets `localhost:7000` for wave data (`/pulley`), and `sender/trigger.pd` targets `localhost:7021` for the V-key trigger (`/trigger`).
 
 Troubleshooting
 

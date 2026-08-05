@@ -10,6 +10,15 @@ const udpPort = new osc.UDPPort({
 
 udpPort.open();
 
+// Second UDP port for trigger.pd's /trigger 1|0 (V-key activation) messages
+const triggerUdpPort = new osc.UDPPort({
+    localAddress: "0.0.0.0",
+    localPort: 7021,
+    metadata: true,
+});
+
+triggerUdpPort.open();
+
 // Create a WebSocket server for browser clients
 const wss = new WebSocket.Server({ port: 3000 });
 
@@ -42,9 +51,7 @@ wss.on("connection", function (socket) {
 });
 
 // Relay OSC messages from Pure Data to all connected browsers
-udpPort.on("message", function (oscMsg) {
-    console.log("From PD:", oscMsg);
-
+function relayToBrowsers(oscMsg) {
     browserPorts.forEach((port) => {
         try {
             if (port.socket.readyState === WebSocket.OPEN) {
@@ -57,4 +64,14 @@ udpPort.on("message", function (oscMsg) {
             browserPorts.delete(port);
         }
     });
+}
+
+udpPort.on("message", function (oscMsg) {
+    console.log("From PD:", oscMsg);
+    relayToBrowsers(oscMsg);
+});
+
+triggerUdpPort.on("message", function (oscMsg) {
+    console.log("From PD (trigger):", oscMsg);
+    relayToBrowsers(oscMsg);
 });

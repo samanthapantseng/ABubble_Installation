@@ -61,12 +61,20 @@
             oscPort.open();
 
             window.__pulley = { value: -10 };
+            // trigger.pd sends /trigger 1 when V should activate (glide to bottom)
+            // and /trigger 0 when it should release (glide back to top).
+            window.__pulleyTrigger = { active: false };
 
             oscPort.on("message", (oscMsg) => {
                 if (oscMsg.address === "/pulley") {
                     const value = oscMsg.args?.[0]?.value;
                     if (Number.isFinite(value)) {
                         window.__pulley.value = value;
+                    }
+                } else if (oscMsg.address === "/trigger") {
+                    const value = oscMsg.args?.[0]?.value;
+                    if (Number.isFinite(value)) {
+                        window.__pulleyTrigger.active = value >= 0.5;
                     }
                 }
             });
