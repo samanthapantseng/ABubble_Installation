@@ -41,7 +41,7 @@
 #X obj 604 10 loadbang;
 #X floatatom 183 510 5 0 0 0 elevation - - 0;
 #X floatatom 6 255 5 0 0 0 z - - 0;
-#X obj 6 39 vsl 20 170 -10 1 0 1 empty empty empty 0 -9 0 12 #fcfcfc #000000 #000000 1309 1;
+#X obj 6 39 vsl 20 170 -10 1 0 1 empty empty empty 0 -9 0 12 #fcfcfc #000000 #000000 768 1;
 #X obj 427 979 outlet~;
 #X obj 659 981 outlet~;
 #X obj 771 319 makefilename %s, f 18;
@@ -56,9 +56,9 @@
 #X obj 183 452 expr 90-acos(($f4-$f1)/sqrt($f2*$f2+$f3*$f3+($f4-$f1)*($f4-$f1)) )/3.14159*180;
 #X obj 771 261 text get merfolk;
 #X obj 810 149 text size merfolk;
-#X msg 604 35 19000;
-#X obj 604 60 expr random(11000 \, $f1);
 #X obj 565 76 - 3;
+#X msg 604 35 12000;
+#X obj 604 60 expr random(8000 \, $f1);
 #X connect 0 0 6 0;
 #X connect 0 0 50 0;
 #X connect 0 1 5 0;
@@ -73,7 +73,7 @@
 #X connect 5 0 8 0;
 #X connect 5 0 54 0;
 #X connect 5 0 56 0;
-#X connect 5 0 58 0;
+#X connect 5 0 59 0;
 #X connect 6 0 7 0;
 #X connect 8 0 4 0;
 #X connect 9 0 5 0;
@@ -115,8 +115,8 @@
 #X connect 35 0 23 0;
 #X connect 36 0 24 0;
 #X connect 37 0 25 0;
-#X connect 38 0 59 0;
-#X connect 39 0 57 0;
+#X connect 38 0 57 0;
+#X connect 39 0 58 0;
 #X connect 40 0 29 1;
 #X connect 40 0 30 0;
 #X connect 41 0 52 0;
@@ -136,6 +136,6 @@
 #X connect 55 0 51 0;
 #X connect 55 0 45 0;
 #X connect 56 0 3 0;
-#X connect 57 0 58 0;
-#X connect 58 0 32 0;
-#X connect 59 0 26 0;
+#X connect 57 0 26 0;
+#X connect 58 0 59 0;
+#X connect 59 0 32 0;
