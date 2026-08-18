@@ -106,7 +106,7 @@
 #X floatatom 192 25 5 0 0 0 - - - 0;
 #X floatatom 380 32 5 0 0 0 - - - 0;
 #X obj 60 173 bng 20 250 50 0 empty empty empty 0 -10 0 12 #fcfcfc #000000 #000000;
-#X obj 585 793 expr if($f1>$f3 && $f1<$f4 \, 1/pow(1+$f2 \, 1) \, 1/pow(1+$f2 \, 3)), f 84;
+#X obj 585 793 expr if($f1>$f3 && $f1<$f4 \, 1/pow(1+$f2 \, 1.5) \, 1/pow(1+$f2 \, 3)), f 84;
 #X connect 0 0 79 1;
 #X connect 0 0 92 1;
 #X connect 0 0 88 1;
