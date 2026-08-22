@@ -1065,9 +1065,7 @@ advancedFolder.close();
 
 setCircularProjectionVisible(viewerOptions.circularProjection);
 
-const defaultStartupUrl = (
-    urlInput.value || "data/260821_bubble.ksplat"
-).trim();
+const defaultStartupUrl = (urlInput.value || "data/bubble.ksplat").trim();
 if (defaultStartupUrl) {
     queueViewerOperation(async () => {
         await loadSplatFromUrl(defaultStartupUrl);
