@@ -77,7 +77,7 @@ const pulleyCameraRange = {
 };
 const pulleySmoothingFactor = 1;
 // the lower, the smoother
-let projectionUiVisible = true;
+let projectionUiVisible = false;
 let projectionModeController = null;
 
 function startGlobalAnimationLoop() {
@@ -522,6 +522,26 @@ function createViewer() {
         freeIntermediateSplatData: viewerOptions.freeIntermediateSplatData,
         splatSortDistanceMapPrecision: viewerOptions.dynamicScene ? 12 : 16,
     });
+
+    // gaussian-splats-3d's built-in click handler recenters the orbit target
+    // on the clicked splat; overriding it here disables that. Drag-to-orbit,
+    // drag-to-pan, and scroll-to-zoom are separate, handled by OrbitControls
+    // below.
+    instance.onMouseClick = () => {};
+
+    // Both perspectiveControls and orthographicControls exist simultaneously
+    // and the viewer swaps this.controls between them when orthographic mode
+    // is toggled (O key), so disable on both to survive that swap.
+    for (const controls of [
+        instance.perspectiveControls,
+        instance.orthographicControls,
+    ]) {
+        if (controls) {
+            controls.enableRotate = false;
+            controls.enablePan = false;
+            controls.enableZoom = false;
+        }
+    }
 
     if (viewerOptions.selfDrivenMode) {
         instance.start();
@@ -1064,6 +1084,7 @@ projectionModeController = advancedFolder
 advancedFolder.close();
 
 setCircularProjectionVisible(viewerOptions.circularProjection);
+setProjectionUiVisible(projectionUiVisible);
 
 const defaultStartupUrl = (urlInput.value || "data/bubble.ksplat").trim();
 if (defaultStartupUrl) {
