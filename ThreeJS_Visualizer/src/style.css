@@ -23,8 +23,8 @@ body {
 
 #app.projection-circular {
     background: #000;
-    --circle-size: 48vmin;
-    --edge-feather: 10vmin;
+    --circle-size: 50vmin;
+    --edge-feather: 8vmin;
 }
 
 #app.projection-circular canvas {

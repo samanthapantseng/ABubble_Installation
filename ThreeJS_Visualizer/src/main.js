@@ -50,7 +50,7 @@ const viewerOptions = {
     cameraMovementSpeed: 0.7,
     proximityRevealMode: true,
     proximityRevealWindowSize: 10,
-    circularProjection: false,
+    circularProjection: true,
 };
 
 const gui = new GUI({ title: "Viewer" });
