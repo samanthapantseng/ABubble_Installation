@@ -844,6 +844,30 @@ helpToggleBtn.addEventListener("click", () => {
     helpToggleBtn.setAttribute("aria-expanded", String(!isOpen));
 });
 
+const disabledLibraryShortcutCodes = new Set([
+    "KeyC",
+    "KeyU",
+    "KeyP",
+    "Equal",
+    "Minus",
+    "ArrowLeft",
+    "ArrowRight",
+    "KeyO",
+]);
+
+// Capture phase runs before gaussian-splats-3d's own window "keydown"
+// listener (bubble phase), so stopping propagation here keeps its switch
+// statement for these codes from ever running.
+window.addEventListener(
+    "keydown",
+    (event) => {
+        if (disabledLibraryShortcutCodes.has(event.code)) {
+            event.stopImmediatePropagation();
+        }
+    },
+    true,
+);
+
 window.addEventListener("keydown", (event) => {
     const key = event.key.toLowerCase();
     if (key !== "h" && key !== "x") {
