@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Three.js Perspective Warp</title>
+
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #info {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+
+      color: white;
+      background: rgba(0, 0, 0, 0.55);
+
+      padding: 10px 14px;
+      border-radius: 6px;
+
+      font-family: monospace;
+      font-size: 14px;
+
+      user-select: none;
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="info">
+  Click to turn around
+</div>
+
+<script type="module">
+
+import * as THREE from
+  "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
+
+
+// ============================================================
+// SCENE
+// ============================================================
+
+const scene = new THREE.Scene();
+
+scene.background =
+  new THREE.Color(0x101018);
+
+
+// ============================================================
+// CAMERA
+// ============================================================
+
+const camera =
+  new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+  );
+
+
+// ============================================================
+// HEAD / CAMERA PIVOT
+// ============================================================
+//
+// This is the important part.
+//
+// The head rotates around WORLD Y.
+//
+// Y = up/down axis
+//
+// So:
+//
+//     left  ←  HEAD  →  right
+//
+// instead of:
+//
+//     looking up/down
+//
+// ============================================================
+
+const head =
+  new THREE.Object3D();
+
+head.position.set(
+  0,
+  2,
+  8
+);
+
+scene.add(head);
+
+
+// Put camera inside the head.
+//
+// Camera looks down -Z by default.
+
+camera.position.set(
+  0,
+  0,
+  0
+);
+
+camera.rotation.set(
+  0,
+  0,
+  0
+);
+
+head.add(camera);
+
+
+// ============================================================
+// RENDERER
+// ============================================================
+
+const renderer =
+  new THREE.WebGLRenderer({
+    antialias: true
+  });
+
+renderer.setPixelRatio(
+  Math.min(window.devicePixelRatio, 2)
+);
+
+renderer.setSize(
+  window.innerWidth,
+  window.innerHeight
+);
+
+document.body.appendChild(
+  renderer.domElement
+);
+
+
+// ============================================================
+// LIGHTING
+// ============================================================
+
+const ambient =
+  new THREE.HemisphereLight(
+    0xffffff,
+    0x222233,
+    2
+  );
+
+scene.add(ambient);
+
+
+const directional =
+  new THREE.DirectionalLight(
+    0xffffff,
+    3
+  );
+
+directional.position.set(
+  5,
+  10,
+  5
+);
+
+scene.add(directional);
+
+
+// ============================================================
+// GROUND
+// ============================================================
+
+const ground =
+  new THREE.Mesh(
+
+    new THREE.PlaneGeometry(
+      100,
+      100
+    ),
+
+    new THREE.MeshStandardMaterial({
+      color: 0x252535,
+      roughness: 0.8
+    })
+
+  );
+
+ground.rotation.x =
+  -Math.PI / 2;
+
+ground.position.y =
+  0;
+
+scene.add(ground);
+
+
+// ============================================================
+// GRID
+// ============================================================
+
+const grid =
+  new THREE.GridHelper(
+    100,
+    50,
+    0x555555,
+    0x222222
+  );
+
+grid.position.y =
+  0.01;
+
+scene.add(grid);
+
+
+// ============================================================
+// BOX FUNCTION
+// ============================================================
+
+function box(
+  x,
+  y,
+  z,
+  color,
+  size = 1
+) {
+
+  const geometry =
+    new THREE.BoxGeometry(
+      size,
+      size,
+      size
+    );
+
+  const material =
+    new THREE.MeshStandardMaterial({
+      color: color,
+      roughness: 0.6
+    });
+
+  const mesh =
+    new THREE.Mesh(
+      geometry,
+      material
+    );
+
+  mesh.position.set(
+    x,
+    y,
+    z
+  );
+
+  scene.add(mesh);
+
+  return mesh;
+}
+
+
+// ============================================================
+// FRONT SIDE
+// ============================================================
+//
+// Camera starts at:
+//
+//       CAMERA
+//          ↓
+//         -Z
+//
+// These are the first boxes you'll see.
+//
+
+box(-4, 1, -6, 0xff3333, 2);
+box( 0, 1, -7, 0x33ff66, 2);
+box( 4, 1, -6, 0x3388ff, 2);
+
+box(-2, 2.5, -10, 0xffff00, 1.5);
+box( 3, 1.5, -11, 0xff00ff, 2);
+
+box(-6, 1, -3, 0xff8800, 2);
+box( 6, 1, -3, 0x00aaff, 2);
+
+
+// ============================================================
+// LEFT SIDE
+// ============================================================
+
+box(-8, 1, -2, 0xff00aa, 2);
+box(-8, 1,  2, 0x00ffaa, 2);
+box(-9, 2,  0, 0xaa44ff, 1.5);
+
+
+// ============================================================
+// RIGHT SIDE
+// ============================================================
+
+box(8, 1, -2, 0xaa00ff, 2);
+box(8, 1,  2, 0xffff00, 2);
+box(9, 2,  0, 0x44aaff, 1.5);
+
+
+// ============================================================
+// BACK SIDE
+// ============================================================
+//
+// These are at +Z.
+//
+// After the 180° Y rotation:
+//
+//             CAMERA
+//                ↓
+//               +Z
+//
+// So these are now directly in front.
+//
+
+box(-4, 1, 7, 0xffffff, 2);
+box( 0, 1, 9, 0xff5500, 2);
+box( 4, 1, 7, 0x55ffff, 2);
+
+box(-2, 2.5, 12, 0xff0066, 1.5);
+box( 3, 1.5, 11, 0x8844ff, 2);
+
+box(-6, 1, 5, 0x88ff00, 2);
+box( 6, 1, 5, 0xff0088, 2);
+
+
+// ============================================================
+// FAR BACK
+// ============================================================
+
+box(-5, 1, 14, 0x4444ff, 2);
+box( 0, 2, 15, 0xff2222, 3);
+box( 5, 1, 14, 0x22ff44, 2);
+
+box(-9, 1, 8, 0xffaa00, 2);
+box( 9, 1, 8, 0x00aaff, 2);
+
+
+// ============================================================
+// WARP SETTINGS
+// ============================================================
+
+let warping = false;
+
+let progress = 0;
+
+const duration = 1800;
+
+
+// ============================================================
+// EASING
+// ============================================================
+
+function easeInOut(t) {
+
+  return t < 0.5
+
+    ? 2 * t * t
+
+    : 1 -
+      Math.pow(-2 * t + 2, 2) / 2;
+}
+
+
+// ============================================================
+// UPDATE WARP
+// ============================================================
+
+function updateWarp(t) {
+
+  // ----------------------------------------------------------
+  // ROTATION
+  // ----------------------------------------------------------
+  //
+  // 0° → 180°
+  //
+  // This is PURE Y rotation.
+  //
+  // No pitching.
+  // No rolling.
+  //
+  // The head simply turns left/right.
+  //
+
+  const rotationProgress =
+    easeInOut(t);
+
+  head.rotation.x =
+    -Math.PI * rotationProgress;
+
+
+  // ----------------------------------------------------------
+  // FOV
+  // ----------------------------------------------------------
+  //
+  // Normal:
+  //
+  //        60°
+  //
+  // Middle:
+  //
+  //        145°
+  //
+  // End:
+  //
+  //        60°
+  //
+
+  const expansion =
+    Math.sin(
+      t * Math.PI
+    );
+
+
+  const normalFov = 60;
+
+  const maximumFov = 180;
+
+
+  camera.fov =
+    normalFov +
+    (maximumFov - normalFov) *
+    expansion;
+
+
+  camera.updateProjectionMatrix();
+
+
+  // ----------------------------------------------------------
+  // SMALL DOLLY-BACK
+  // ----------------------------------------------------------
+  //
+  // Makes the FOV expansion feel more dramatic.
+  //
+
+  head.position.z =
+    8 + expansion * 1.5;
+}
+
+
+// ============================================================
+// START WARP
+// ============================================================
+
+function startWarp() {
+
+  if (warping)
+    return;
+
+
+  warping = true;
+
+
+  const startTime =
+    performance.now();
+
+
+  document.getElementById(
+    "info"
+  ).textContent =
+    "Warping...";
+
+
+  function animateWarp(now) {
+
+    const elapsed =
+      now - startTime;
+
+
+    progress =
+      Math.min(
+        elapsed / duration,
+        1
+      );
+
+
+    updateWarp(
+      progress
+    );
+
+
+    if (progress < 1) {
+
+      requestAnimationFrame(
+        animateWarp
+      );
+
+    }
+
+    else {
+
+      // ------------------------------------------------------
+      // FINISHED
+      // ------------------------------------------------------
+
+      warping = false;
+
+
+      // Make absolutely sure we end at 180°.
+
+      head.rotation.x =
+        -Math.PI;
+
+
+      // Return to normal perspective.
+
+      camera.fov =
+        60;
+
+
+      camera.updateProjectionMatrix();
+
+
+      // Return to normal distance.
+
+      head.position.z =
+        8;
+
+
+      // IMPORTANT:
+      //
+      // We DO NOT reset head.rotation.y.
+      //
+      // Therefore the camera remains looking backward.
+      //
+
+      document.getElementById(
+        "info"
+      ).textContent =
+        "Looking backward — click to reset";
+    }
+  }
+
+
+  requestAnimationFrame(
+    animateWarp
+  );
+}
+
+
+// ============================================================
+// RESET
+// ============================================================
+
+function resetCamera() {
+
+  if (warping)
+    return;
+
+
+  head.rotation.y =
+    0;
+
+
+  camera.fov =
+    60;
+
+
+  head.position.z =
+    8;
+
+
+  camera.updateProjectionMatrix();
+
+
+  document.getElementById(
+    "info"
+  ).textContent =
+    "Click to turn around";
+}
+
+
+// ============================================================
+// CLICK
+// ============================================================
+//
+// First click:
+//
+//     FRONT → BACK
+//
+// Second click:
+//
+//     BACK → FRONT
+//
+// ============================================================
+
+window.addEventListener(
+  "click",
+  () => {
+
+    if (warping)
+      return;
+
+
+    if (
+      Math.abs(
+        head.rotation.y
+      ) < 0.01
+    ) {
+
+      startWarp();
+
+    } else {
+
+      // Optional: reset instantly.
+      //
+      // Change this to startWarp()
+      // if you want another animated turn.
+
+      resetCamera();
+    }
+
+  }
+);
+
+
+// ============================================================
+// RESIZE
+// ============================================================
+
+window.addEventListener(
+  "resize",
+  () => {
+
+    camera.aspect =
+      window.innerWidth /
+      window.innerHeight;
+
+
+    camera.updateProjectionMatrix();
+
+
+    renderer.setSize(
+      window.innerWidth,
+      window.innerHeight
+    );
+
+  }
+);
+
+
+// ============================================================
+// RENDER LOOP
+// ============================================================
+
+function animate() {
+
+  requestAnimationFrame(
+    animate
+  );
+
+
+  renderer.render(
+    scene,
+    camera
+  );
+}
+
+
+animate();
+
+</script>
+
+</body>
+</html>
