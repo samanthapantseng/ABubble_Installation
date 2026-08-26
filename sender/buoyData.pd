@@ -1,4 +1,4 @@
-#N canvas 0 33 649 976 12;
+#N canvas 0 0 889 976 12;
 #X obj 32 51 netreceive -u -b 8000;
 #X obj 32 91 oscparse;
 #X obj 32 131 list trim;
@@ -13,15 +13,15 @@
 #X obj 52 502 f;
 #X floatatom 52 531 5 0 0 0 - - - 0;
 #X floatatom 52 617 5 0 0 0 - - - 0;
-#X obj 252 836 list prepend send;
-#X obj 253 941 netsend -u -b;
-#X msg 283 915 connect localhost 7000;
-#X obj 252 864 list trim;
-#X obj 283 887 loadbang;
+#X obj 112 838 list prepend send;
+#X obj 113 943 netsend -u -b;
+#X msg 143 917 connect localhost 7000;
+#X obj 112 866 list trim;
+#X obj 143 889 loadbang;
 #X obj 88 504 + 1;
 #X obj 52 559 % 48;
 #X obj 52 589 text get buoydata;
-#X obj 252 809 oscformat -f f pulley;
+#X obj 112 811 oscformat -f f pulley;
 #X text 115 97 it will print out the wave height and the index (should be 48 = 24h);
 #X obj 431 614 line;
 #X floatatom 359 459 5 0 0 0 - - - 0;
@@ -59,6 +59,11 @@
 #X msg 431 532 5.5 22500 10;
 #X obj 155 511 expr $f1*min(pow(abs($f2) \, 3) \, 1);
 #X floatatom 37 843 5 0 0 0 - - - 0;
+#X obj 271 861 list prepend send;
+#X obj 271 889 list trim;
+#X obj 271 834 oscformat -f f trigger;
+#X obj 61 912 bng 20 250 50 0 empty empty empty 0 -10 0 12 #fcfcfc #000000 #000000;
+#X obj 393 921 bng 20 250 50 0 empty empty empty 0 -10 0 12 #fcfcfc #000000 #000000;
 #X connect 0 0 1 0;
 #X connect 1 0 2 0;
 #X connect 2 0 3 0;
@@ -75,6 +80,7 @@
 #X connect 13 0 16 0;
 #X connect 15 0 14 0;
 #X connect 16 0 14 0;
+#X connect 16 0 62 0;
 #X connect 17 0 15 0;
 #X connect 18 0 10 1;
 #X connect 19 0 20 0;
@@ -90,6 +96,7 @@
 #X connect 25 0 28 0;
 #X connect 25 1 27 0;
 #X connect 26 0 25 0;
+#X connect 26 0 61 0;
 #X connect 27 0 55 0;
 #X connect 28 0 56 0;
 #X connect 30 0 43 0;
@@ -119,3 +126,8 @@
 #X connect 55 0 54 0;
 #X connect 56 0 23 0;
 #X connect 57 0 45 0;
+#X connect 59 0 60 0;
+#X connect 60 0 14 0;
+#X connect 60 0 63 0;
+#X connect 61 0 59 0;
+#X connect 61 0 59 1;
