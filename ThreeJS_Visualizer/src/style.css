@@ -9,6 +9,21 @@ body {
     color: #e6edf3;
 }
 
+/* Exhibition: no pointer over the projection once the viewer is fullscreen.
+   display-mode covers F11 / macOS native fullscreen (which do NOT trigger the
+   Fullscreen API, so :fullscreen never matches); the :fullscreen rule covers
+   requestFullscreen() if it is ever wired up. Both keep the cursor while the
+   menus are open, so the controls stay clickable. */
+@media all and (display-mode: fullscreen) {
+    body:not(.ui-visible) {
+        cursor: none;
+    }
+}
+
+:root:fullscreen body:not(.ui-visible) {
+    cursor: none;
+}
+
 #app {
     display: block;
     width: 100vw;

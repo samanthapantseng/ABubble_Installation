@@ -176,6 +176,10 @@ function refreshGuiDisplay() {
 function setProjectionUiVisible(visible) {
     projectionUiVisible = visible;
 
+    // Drives the fullscreen cursor-hiding rule in style.css: the pointer is
+    // hidden over the projection but returns whenever the menus are open.
+    document.body.classList.toggle("ui-visible", visible);
+
     if (uiEl) {
         uiEl.style.display = visible ? "" : "none";
     }
