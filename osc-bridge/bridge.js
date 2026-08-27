@@ -67,11 +67,11 @@ function relayToBrowsers(oscMsg) {
 }
 
 udpPort.on("message", function (oscMsg) {
-    /* console.log("From PD:", oscMsg); */
+    console.log("From PD:", oscMsg);
     relayToBrowsers(oscMsg);
 });
 
 triggerUdpPort.on("message", function (oscMsg) {
-    /* console.log("From PD (trigger):", oscMsg); */
+    console.log("From PD (trigger):", oscMsg);
     relayToBrowsers(oscMsg);
 });

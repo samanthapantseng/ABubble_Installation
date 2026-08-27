@@ -38,6 +38,10 @@
         </div>
         <div id="app"></div>
 
+        <!-- Debug readout of the OSC /trigger state. Starts hidden and is
+             shown with the other menus by the H key, same as #helpPanel. -->
+        <div id="triggerDebug" hidden>Trigger: — (no OSC yet)</div>
+
         <script src="https://cdn.jsdelivr.net/npm/osc/dist/osc-browser.min.js"></script>
         <script>
             const oscPort = new osc.WebSocketPort({
@@ -47,9 +51,12 @@
             oscPort.open();
 
             window.__pulley = { value: -10 };
-            // trigger.pd sends /trigger 1 when V should activate (glide to bottom)
-            // and /trigger 0 when it should release (glide back to top).
-            window.__pulleyTrigger = { active: false };
+            // buoyData.pd's "toggle journey" toggle sends /trigger 1 to start the
+            // descent (glide to bottom) and /trigger 0 to return to the surface,
+            // on port 7000 alongside /pulley. active === true means descending.
+            // value stays null until a /trigger actually arrives, so the debug
+            // readout can tell "never received" apart from "received a 0".
+            window.__pulleyTrigger = { active: false, value: null };
 
             oscPort.on("message", (oscMsg) => {
                 if (oscMsg.address === "/pulley") {
@@ -60,6 +67,7 @@
                 } else if (oscMsg.address === "/trigger") {
                     const value = oscMsg.args?.[0]?.value;
                     if (Number.isFinite(value)) {
+                        window.__pulleyTrigger.value = value;
                         window.__pulleyTrigger.active = value >= 0.5;
                     }
                 }
