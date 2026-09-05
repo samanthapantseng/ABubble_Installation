@@ -17,7 +17,7 @@
 #X obj 436 75 symbol;
 #X msg 436 143 open \$1 \, 1;
 #X floatatom 21 240 5 0 0 0 z - - 0;
-#X obj 21 45 vsl 20 170 -1 1 0 1 empty empty empty 0 -9 0 12 #fcfcfc #000000 #000000 9675 1;
+#X obj 21 45 vsl 20 170 -1 1 0 1 empty empty empty 0 -9 0 12 #fcfcfc #000000 #000000 16900 1;
 #X obj 306 348 expr ($f1+$f2)/2;
 #X floatatom 361 387 5 0 0 0 - - - 0;
 #X obj 343 299 t b;
@@ -94,7 +94,7 @@
 #X obj 234 7 inlet;
 #X floatatom 175 16 5 0 0 0 - - - 0;
 #X floatatom 389 39 5 0 0 0 - - - 0;
-#X obj 614 793 expr if($f1>$f4-0.5 && $f1<$f3+0.5 \, 1/pow(1+$f2 \, 1) \, 1/pow(1+$f2 \, 6));
+#X obj 614 793 expr if($f1>$f4-0.5 && $f1<$f3+0.5 \, 1/pow(1+$f2 \, 1) \, 1/pow(1+$f2 \, 3));
 #X connect 0 0 75 1;
 #X connect 0 0 79 1;
 #X connect 0 0 77 1;
